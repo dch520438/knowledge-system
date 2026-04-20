@@ -1,0 +1,685 @@
+.qa {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* ========== 智能问答区域 ========== */
+.qa-smart-section {
+  margin-bottom: 32px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.qa-smart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.qa-smart-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.qa-smart-input-area {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.qa-smart-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 2px solid #e8e8e8;
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 1.6;
+  resize: none;
+  transition: border-color 0.3s;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.qa-smart-input:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+  outline: none;
+}
+
+.qa-smart-submit {
+  height: 44px;
+  padding: 0 24px;
+  font-size: 15px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.qa-smart-error {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background-color: #fff2f0;
+  color: #ff4d4f;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+/* 回答区域 */
+.qa-smart-answer-area {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.qa-smart-question-display {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.qa-smart-question-text {
+  font-size: 15px;
+  font-weight: 500;
+  color: #333;
+  line-height: 1.5;
+}
+
+.qa-smart-answer-display {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.qa-smart-answer-text {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.8;
+  flex: 1;
+  white-space: pre-wrap;
+}
+
+.qa-typing-cursor {
+  animation: blink 0.8s infinite;
+  color: #1890ff;
+  font-weight: bold;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* 引用来源 */
+.qa-smart-references {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding-left: 34px;
+}
+
+.qa-smart-refs-label {
+  font-size: 12px;
+  color: #999;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.qa-smart-refs-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.qa-smart-ref-tag {
+  background-color: #e6f7ff;
+  color: #1890ff;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.qa-smart-ref-tag:hover {
+  background-color: #bae7ff;
+  color: #0050b3;
+}
+
+/* ========== 问答历史 ========== */
+.qa-history-section {
+  margin-bottom: 24px;
+}
+
+.qa-history-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 16px 0;
+}
+
+/* 按钮 */
+.qa-btn {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  white-space: nowrap;
+  cursor: pointer;
+  border: none;
+}
+
+.qa-btn-primary {
+  background-color: #1890ff;
+  color: #fff;
+}
+
+.qa-btn-primary:hover {
+  background-color: #40a9ff;
+}
+
+.qa-btn-default {
+  background-color: #fff;
+  color: #333;
+  border: 1px solid #d9d9d9;
+}
+
+.qa-btn-default:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.qa-btn-link {
+  background: none;
+  color: #1890ff;
+  padding: 0 8px;
+  height: auto;
+  font-size: 13px;
+}
+
+.qa-btn-link:hover {
+  color: #40a9ff;
+}
+
+.qa-btn-danger {
+  color: #ff4d4f;
+}
+
+.qa-btn-danger:hover {
+  color: #ff7875;
+}
+
+.qa-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 加载和空状态 */
+.qa-loading,
+.qa-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+  font-size: 14px;
+}
+
+/* 问答列表 */
+.qa-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.qa-card {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: box-shadow 0.3s;
+}
+
+.qa-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.qa-card-main {
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.qa-card-main:hover {
+  background-color: #fafafa;
+}
+
+.qa-card-question {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.qa-card-icon {
+  width: 24px;
+  height: 24px;
+  background-color: #1890ff;
+  color: #fff;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.answer-icon {
+  background-color: #52c41a;
+}
+
+.qa-card-question-text {
+  font-size: 15px;
+  font-weight: 500;
+  color: #333;
+  line-height: 1.5;
+}
+
+.qa-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 34px;
+  font-size: 12px;
+  color: #999;
+}
+
+.qa-card-ref-count {
+  background-color: #e6f7ff;
+  color: #1890ff;
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.qa-card-time {
+  color: #bbb;
+}
+
+.qa-card-arrow {
+  margin-left: auto;
+  font-size: 10px;
+  transition: transform 0.3s;
+  color: #ccc;
+}
+
+.qa-card-arrow.expanded {
+  transform: rotate(180deg);
+}
+
+/* 展开详情 */
+.qa-card-detail {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+  border-top: 0px solid #f0f0f0;
+}
+
+.qa-card-detail.show {
+  max-height: 800px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+  background-color: #fafafa;
+}
+
+.qa-card-answer {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.qa-card-answer-text {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.8;
+  flex: 1;
+  white-space: pre-wrap;
+}
+
+.qa-card-refs {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-left: 34px;
+}
+
+.qa-refs-label {
+  font-size: 12px;
+  color: #999;
+  flex-shrink: 0;
+}
+
+.qa-refs-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.qa-ref-tag {
+  background-color: #e6f7ff;
+  color: #1890ff;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.qa-ref-tag-clickable {
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.qa-ref-tag-clickable:hover {
+  background-color: #bae7ff;
+  color: #0050b3;
+}
+
+.qa-card-actions {
+  display: flex;
+  gap: 4px;
+  padding-left: 34px;
+}
+
+/* 模态框 */
+.qa-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.qa-modal {
+  background: #fff;
+  border-radius: 8px;
+  width: 640px;
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.qa-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+.qa-modal-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.qa-modal-close {
+  background: none;
+  font-size: 18px;
+  color: #999;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  border: none;
+}
+
+.qa-modal-close:hover {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.qa-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.qa-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 24px;
+  border-top: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+/* 表单 */
+.qa-form-item {
+  margin-bottom: 20px;
+}
+
+.qa-form-item:last-child {
+  margin-bottom: 0;
+}
+
+.qa-form-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.qa-form-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+  box-sizing: border-box;
+}
+
+.qa-form-input:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  outline: none;
+}
+
+.qa-form-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 120px;
+  transition: border-color 0.3s;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.qa-form-textarea:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  outline: none;
+}
+
+/* 知识库搜索 */
+.qa-kb-search {
+  display: flex;
+  gap: 8px;
+}
+
+.qa-kb-search .qa-form-input {
+  flex: 1;
+}
+
+.qa-kb-results {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.qa-kb-result-item {
+  padding: 10px 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.qa-kb-result-item:hover {
+  border-color: #1890ff;
+  background-color: #e6f7ff;
+}
+
+.qa-kb-result-item.referenced {
+  border-color: #91d5ff;
+  background-color: #e6f7ff;
+}
+
+.qa-kb-result-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qa-kb-result-badge {
+  background-color: #1890ff;
+  color: #fff;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.qa-kb-result-summary {
+  font-size: 12px;
+  color: #999;
+  line-height: 1.4;
+}
+
+/* 引用标签 */
+.qa-ref-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.qa-ref-tag-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #e6f7ff;
+  color: #1890ff;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.qa-ref-tag-remove {
+  background: none;
+  color: #1890ff;
+  font-size: 12px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+.qa-ref-tag-remove:hover {
+  background-color: #bae7ff;
+  color: #0050b3;
+}
+
+/* 知识详情 */
+.qa-detail-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.qa-detail-category {
+  display: inline-block;
+  background-color: #e6f7ff;
+  color: #1890ff;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.qa-detail-content {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: #fafafa;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border: 1px solid #f0f0f0;
+}
+
+.qa-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .qa-modal {
+    width: 95vw;
+  }
+
+  .qa-kb-search {
+    flex-direction: column;
+  }
+
+  .qa-smart-input-area {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .qa-smart-submit {
+    width: 100%;
+  }
+
+  .qa-smart-references {
+    flex-direction: column;
+    padding-left: 0;
+  }
+}

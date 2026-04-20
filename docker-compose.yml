@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  knowledge-system:
+    build: .
+    container_name: knowledge-system
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+    restart: unless-stopped

@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+python-multipart
+python-docx
+pdfplumber
+httpx
+beautifulsoup4
+h11
+httptools
