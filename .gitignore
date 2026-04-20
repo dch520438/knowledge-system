@@ -1,0 +1,13 @@
+node_modules/
+__pycache__/
+*.pyc
+.git
+.gitignore
+frontend/dist/
+backend/static/
+backend/data/*.db
+*.db
+.DS_Store
+*.spec
+backend/build/
+backend/dist/
