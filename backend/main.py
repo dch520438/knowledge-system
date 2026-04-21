@@ -356,20 +356,47 @@ async def import_knowledge_from_file(
             raise HTTPException(status_code=400, detail="JSON文件解析失败")
 
     elif ext == "docx":
-        # DOCX格式：每个段落作为一条知识（标题取前20字）
+        # DOCX格式：支持标题样式和标记格式
         try:
             doc = Document(io.BytesIO(content_bytes))
-            for para in doc.paragraphs:
-                text = para.text.strip()
-                if not text:
-                    continue
-                title = text[:20] + ("..." if len(text) > 20 else "")
-                knowledge_list.append({
-                    "title": title,
-                    "content": text,
-                    "category": None,
-                    "tags": "",
-                })
+            
+            # 检测是否包含标记格式（标题：分类：等）
+            full_text = "\n".join([p.text for p in doc.paragraphs])
+            if re.search(r'标题[：:]', full_text):
+                # 标记模板格式
+                entries = re.split(r'\n\s*(?=标题[：:])', full_text.strip())
+                for entry in entries:
+                    entry = entry.strip()
+                    if not entry:
+                        continue
+                    title_match = re.search(r'标题[：:]\s*(.+)', entry)
+                    category_match = re.search(r'分类[：:]\s*(.+)', entry)
+                    tags_match = re.search(r'标签[：:]\s*(.+)', entry)
+                    content_match = re.search(r'内容[：:]\s*(.+)', entry, re.DOTALL)
+                    
+                    title = title_match.group(1).strip() if title_match else ""
+                    content = content_match.group(1).strip() if content_match else ""
+                    if not title or not content:
+                        continue
+                    knowledge_list.append({
+                        "title": title[:255],
+                        "content": content,
+                        "category": category_match.group(1).strip() if category_match else None,
+                        "tags": tags_match.group(1).strip() if tags_match else "",
+                    })
+            else:
+                # 普通格式：每个段落作为一条知识
+                for para in doc.paragraphs:
+                    text = para.text.strip()
+                    if not text:
+                        continue
+                    title = text[:20] + ("..." if len(text) > 20 else "")
+                    knowledge_list.append({
+                        "title": title,
+                        "content": text,
+                        "category": None,
+                        "tags": "",
+                    })
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"DOCX文件解析失败: {str(e)}")
 
@@ -392,24 +419,48 @@ async def import_knowledge_from_file(
             raise HTTPException(status_code=400, detail=f"PDF文件解析失败: {str(e)}")
 
     elif ext == "txt":
-        # TXT格式：按空行分割，每段作为一条知识
+        # TXT格式：支持标记模板和空行分割两种格式
         try:
             text = content_bytes.decode("utf-8")
-            # 按空行分割段落
-            paragraphs = re.split(r'\n\s*\n', text)
-            for para in paragraphs:
-                para_text = para.strip()
-                if not para_text:
-                    continue
-                # 将换行替换为空格，合并为单行内容
-                para_text = re.sub(r'\n', ' ', para_text).strip()
-                title = para_text[:20] + ("..." if len(para_text) > 20 else "")
-                knowledge_list.append({
-                    "title": title,
-                    "content": para_text,
-                    "category": None,
-                    "tags": "",
-                })
+            
+            # 检测是否为标记模板格式（包含"标题："或"标题:"）
+            if re.search(r'标题[：:]', text):
+                # 标记模板格式：按"标题："分割为多个知识条目
+                entries = re.split(r'\n\s*(?=标题[：:])', text.strip())
+                for entry in entries:
+                    entry = entry.strip()
+                    if not entry:
+                        continue
+                    title_match = re.search(r'标题[：:]\s*(.+)', entry)
+                    category_match = re.search(r'分类[：:]\s*(.+)', entry)
+                    tags_match = re.search(r'标签[：:]\s*(.+)', entry)
+                    content_match = re.search(r'内容[：:]\s*(.+)', entry, re.DOTALL)
+                    
+                    title = title_match.group(1).strip() if title_match else ""
+                    content = content_match.group(1).strip() if content_match else ""
+                    if not title or not content:
+                        continue
+                    knowledge_list.append({
+                        "title": title[:255],
+                        "content": content,
+                        "category": category_match.group(1).strip() if category_match else None,
+                        "tags": tags_match.group(1).strip() if tags_match else "",
+                    })
+            else:
+                # 普通格式：按空行分割段落
+                paragraphs = re.split(r'\n\s*\n', text)
+                for para in paragraphs:
+                    para_text = para.strip()
+                    if not para_text:
+                        continue
+                    para_text = re.sub(r'\n', ' ', para_text).strip()
+                    title = para_text[:20] + ("..." if len(para_text) > 20 else "")
+                    knowledge_list.append({
+                        "title": title,
+                        "content": para_text,
+                        "category": None,
+                        "tags": "",
+                    })
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"TXT文件解析失败: {str(e)}")
 
