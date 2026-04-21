@@ -151,13 +151,10 @@ def export_knowledge(
         data = []
         for item in items:
             data.append({
-                "id": item.id,
                 "title": item.title,
                 "content": item.content,
                 "category": item.category,
                 "tags": item.tags,
-                "created_at": item.created_at.isoformat() if item.created_at else None,
-                "updated_at": item.updated_at.isoformat() if item.updated_at else None,
             })
         json_bytes = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
         return StreamingResponse(
@@ -167,23 +164,17 @@ def export_knowledge(
         )
 
     elif format == "docx":
-        # DOCX格式导出
+        # DOCX格式导出（标记模板格式，可直接重新导入）
         doc = Document()
-        for item in items:
-            # 添加标题
-            doc.add_heading(item.title, level=2)
-            # 添加内容
-            doc.add_paragraph(item.content)
-            # 添加分类和标签信息
-            meta_parts = []
+        for i, item in enumerate(items):
+            doc.add_paragraph(f"标题：{item.title}")
             if item.category:
-                meta_parts.append(f"分类: {item.category}")
+                doc.add_paragraph(f"分类：{item.category}")
             if item.tags:
-                meta_parts.append(f"标签: {item.tags}")
-            if meta_parts:
-                doc.add_paragraph(" | ".join(meta_parts))
-            # 添加分隔
-            doc.add_paragraph("")
+                doc.add_paragraph(f"标签：{item.tags}")
+            doc.add_paragraph(f"内容：{item.content}")
+            if i < len(items) - 1:
+                doc.add_paragraph("")
         buffer = io.BytesIO()
         doc.save(buffer)
         buffer.seek(0)
@@ -198,17 +189,14 @@ def export_knowledge(
         buffer = io.StringIO()
         writer = csv.writer(buffer)
         # 写入标题行
-        writer.writerow(["id", "title", "content", "category", "tags", "created_at", "updated_at"])
+        writer.writerow(["标题", "分类", "标签", "内容"])
         # 写入数据行
         for item in items:
             writer.writerow([
-                item.id,
                 item.title,
-                item.content,
                 item.category or "",
                 item.tags or "",
-                item.created_at.isoformat() if item.created_at else "",
-                item.updated_at.isoformat() if item.updated_at else "",
+                item.content,
             ])
         csv_bytes = buffer.getvalue().encode("utf-8-sig")  # 使用utf-8-sig以支持Excel打开
         return StreamingResponse(
@@ -677,11 +665,16 @@ def export_writing_document(
         # 生成Word文档
         doc = Document()
         doc.add_heading(db_doc.title, level=1)
-        # 按段落分割内容
-        paragraphs = db_doc.content.split("\n")
-        for para in paragraphs:
-            if para.strip():
-                doc.add_paragraph(para.strip())
+        # 使用 BeautifulSoup 去除 HTML 标签，提取纯文本
+        if db_doc.content:
+            soup = BeautifulSoup(db_doc.content, 'html.parser')
+            clean_text = soup.get_text(separator='\n')
+            # 按段落分割并添加到文档
+            paragraphs = clean_text.split('\n')
+            for para in paragraphs:
+                stripped = para.strip()
+                if stripped:
+                    doc.add_paragraph(stripped)
         buffer = io.BytesIO()
         doc.save(buffer)
         buffer.seek(0)
