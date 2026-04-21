@@ -55,4 +55,16 @@ echo "  访问地址: http://localhost:8000"
 echo "  按 Ctrl+C 停止服务"
 echo "================================"
 echo ""
-python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
+python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 &
+SERVER_PID=$!
+
+# 等待服务启动后自动打开浏览器
+sleep 2
+if command -v xdg-open &> /dev/null; then
+    xdg-open http://localhost:8000
+elif command -v open &> /dev/null; then
+    open http://localhost:8000
+fi
+
+# 等待服务进程
+wait $SERVER_PID
