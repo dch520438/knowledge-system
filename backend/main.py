@@ -21,6 +21,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from docx import Document
+from docx.shared import Cm
 import pdfplumber
 
 from database import engine, Base, get_db, SessionLocal
@@ -648,6 +649,197 @@ def delete_writing_document(doc_id: int, db: Session = Depends(get_db)):
 
 # ==================== 写作文档导入/导出路由 ====================
 
+def html_to_docx(html_content: str) -> Document:
+    """将 Quill HTML 内容转换为 python-docx Document，保留格式"""
+    doc = Document()
+    if not html_content or not html_content.strip():
+        return doc
+    
+    soup = BeautifulSoup(html_content, 'html.parser')
+    
+    # 遍历所有顶层元素
+    for element in soup.children:
+        if isinstance(element, str):
+            text = element.strip()
+            if text:
+                doc.add_paragraph(text)
+            continue
+        
+        tag = element.name
+        if tag is None:
+            continue
+        
+        if tag in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
+            level = int(tag[1])
+            text = element.get_text()
+            if text.strip():
+                doc.add_heading(text.strip(), level=level)
+        
+        elif tag == 'p':
+            para = doc.add_paragraph()
+            # 处理段落中的内联格式
+            _add_formatted_runs(para, element)
+        
+        elif tag in ('ul', 'ol'):
+            list_type = 'ol' if tag == 'ol' else 'ul'
+            for li in element.find_all('li', recursive=False):
+                para = doc.add_paragraph(style='List Bullet' if list_type == 'ul' else 'List Number')
+                _add_formatted_runs(para, li)
+        
+        elif tag == 'blockquote':
+            para = doc.add_paragraph()
+            para.paragraph_format.left_indent = Cm(1.5)
+            _add_formatted_runs(para, element)
+        
+        elif tag == 'br':
+            doc.add_paragraph('')
+        
+        elif tag in ('div', 'section'):
+            # 容器元素，递归处理子元素
+            for child in element.children:
+                if isinstance(child, str):
+                    text = child.strip()
+                    if text:
+                        doc.add_paragraph(text)
+                elif child.name == 'p':
+                    para = doc.add_paragraph()
+                    _add_formatted_runs(para, child)
+                elif child.name == 'br':
+                    doc.add_paragraph('')
+                elif child.name in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
+                    level = int(child.name[1])
+                    text = child.get_text()
+                    if text.strip():
+                        doc.add_heading(text.strip(), level=level)
+                elif child.name in ('ul', 'ol'):
+                    list_type = 'ol' if child.name == 'ol' else 'ul'
+                    for li in child.find_all('li', recursive=False):
+                        para = doc.add_paragraph(style='List Bullet' if list_type == 'ul' else 'List Number')
+                        _add_formatted_runs(para, li)
+                else:
+                    text = child.get_text().strip()
+                    if text:
+                        doc.add_paragraph(text)
+        
+        else:
+            text = element.get_text().strip()
+            if text:
+                doc.add_paragraph(text)
+    
+    return doc
+
+
+def _add_formatted_runs(paragraph, element):
+    """将 HTML 元素中的内联格式（加粗、斜体、下划线等）添加到 docx 段落"""
+    from docx.shared import Pt
+    
+    def process_node(node):
+        if isinstance(node, str):
+            text = node
+            if text:
+                paragraph.add_run(text)
+            return
+        
+        tag = node.name
+        text = node.get_text()
+        if not text:
+            return
+        
+        run = paragraph.add_run(text)
+        
+        # 检查父元素链中的格式标记
+        parent = node.parent
+        while parent and parent.name:
+            if parent.name in ('strong', 'b'):
+                run.bold = True
+            elif parent.name in ('em', 'i'):
+                run.italic = True
+            elif parent.name == 'u':
+                run.underline = True
+            elif parent.name == 's' or parent.name == 'del':
+                run.strike = True
+            elif parent.name == 'sub':
+                run.font.subscript = True
+            elif parent.name == 'sup':
+                run.font.superscript = True
+            parent = parent.parent
+        
+        # 也检查当前节点
+        if tag in ('strong', 'b'):
+            run.bold = True
+        elif tag in ('em', 'i'):
+            run.italic = True
+        elif tag == 'u':
+            run.underline = True
+        elif tag == 's' or tag == 'del':
+            run.strike = True
+    
+    for child in element.children:
+        process_node(child)
+
+
+def docx_to_html(doc: Document) -> str:
+    """将 python-docx Document 转换为 Quill 兼容的 HTML，保留格式"""
+    html_parts = []
+    
+    for para in doc.paragraphs:
+        style_name = para.style.name if para.style else ''
+        text = para.text
+        
+        if not text.strip():
+            continue
+        
+        # 检测标题级别
+        if style_name.startswith('Heading'):
+            try:
+                level = int(style_name.split()[-1])
+                html_parts.append(f'<h{level}>{_runs_to_html(para.runs)}</h{level}>')
+                continue
+            except (ValueError, IndexError):
+                pass
+        
+        # 检测列表
+        if 'List' in style_name:
+            if 'Number' in style_name or '2' in style_name:
+                html_parts.append(f'<li>{_runs_to_html(para.runs)}</li>')
+            else:
+                html_parts.append(f'<li>{_runs_to_html(para.runs)}</li>')
+            continue
+        
+        # 普通段落
+        html_parts.append(f'<p>{_runs_to_html(para.runs)}</p>')
+    
+    return '\n'.join(html_parts)
+
+
+def _runs_to_html(runs) -> str:
+    """将 docx runs 转换为带格式的 HTML"""
+    if not runs:
+        return ''
+    
+    parts = []
+    for run in runs:
+        text = run.text or ''
+        if not text:
+            continue
+        
+        # 转义 HTML 特殊字符
+        text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        
+        if run.bold:
+            text = f'<strong>{text}</strong>'
+        if run.italic:
+            text = f'<em>{text}</em>'
+        if run.underline:
+            text = f'<u>{text}</u>'
+        if run.strike:
+            text = f'<s>{text}</s>'
+        
+        parts.append(text)
+    
+    return ''.join(parts)
+
+
 @app.get("/api/writing/{doc_id}/export", summary="导出单个写作文档")
 def export_writing_document(
     doc_id: int,
@@ -664,22 +856,46 @@ def export_writing_document(
         raise HTTPException(status_code=404, detail="写作文档不存在")
 
     if format == "docx":
-        # 生成Word文档
+        # 生成Word文档，保留格式
         doc = Document()
         doc.add_heading(db_doc.title, level=1)
-        # 使用 BeautifulSoup 去除 HTML 标签，提取纯文本
         if db_doc.content:
-            soup = BeautifulSoup(db_doc.content, 'html.parser')
-            # 将 <br> 替换为换行符，确保换行正确
-            for br in soup.find_all('br'):
-                br.replace_with('\n')
-            clean_text = soup.get_text(separator='\n')
-            # 按段落分割并添加到文档
-            paragraphs = clean_text.split('\n')
-            for para in paragraphs:
-                stripped = para.strip()
-                if stripped:
-                    doc.add_paragraph(stripped)
+            content_doc = html_to_docx(db_doc.content)
+            # 将内容文档的段落复制到主文档
+            for para in content_doc.paragraphs:
+                new_para = doc.add_paragraph()
+                new_para.paragraph_format.first_line_indent = para.paragraph_format.first_line_indent
+                new_para.paragraph_format.left_indent = para.paragraph_format.left_indent
+                new_para.paragraph_format.alignment = para.paragraph_format.alignment
+                new_para.paragraph_format.space_before = para.paragraph_format.space_before
+                new_para.paragraph_format.space_after = para.paragraph_format.space_after
+                if para.style and para.style.name and para.style.name.startswith('Heading'):
+                    try:
+                        level = int(para.style.name.split()[-1])
+                        # 删除刚添加的段落，改为标题
+                        p_element = new_para._element
+                        p_element.getparent().remove(p_element)
+                        doc.add_heading(para.text, level=level)
+                        continue
+                    except (ValueError, IndexError):
+                        pass
+                if para.style and 'List' in (para.style.name or ''):
+                    style_name = 'List Bullet' if 'Bullet' in para.style.name else 'List Number'
+                    p_element = new_para._element
+                    p_element.getparent().remove(p_element)
+                    doc.add_paragraph(style=style_name)
+                    new_para = doc.paragraphs[-1]
+                # 复制 runs（保留格式）
+                for run in para.runs:
+                    new_run = new_para.add_run(run.text)
+                    new_run.bold = run.bold
+                    new_run.italic = run.italic
+                    new_run.underline = run.underline
+                    new_run.strike = run.strike
+                    if run.font.size:
+                        new_run.font.size = run.font.size
+                    if run.font.name:
+                        new_run.font.name = run.font.name
         buffer = io.BytesIO()
         doc.save(buffer)
         buffer.seek(0)
@@ -714,19 +930,24 @@ async def import_writing_document(
     doc_content = ""
 
     if ext == "docx":
-        # DOCX格式：读取内容
+        # DOCX格式：读取内容，保留格式
         try:
             doc = Document(io.BytesIO(content_bytes))
-            paragraphs = []
-            for para in doc.paragraphs:
-                text = para.text.strip()
-                if text:
-                    paragraphs.append(text)
-            if not paragraphs:
+            if not doc.paragraphs:
                 raise HTTPException(status_code=400, detail="DOCX文件中没有有效内容")
-            # 使用第一段作为标题，其余作为内容
-            doc_title = paragraphs[0][:255]
-            doc_content = "\n".join(paragraphs)
+            # 使用第一段作为标题，其余作为HTML内容（保留格式）
+            doc_title = doc.paragraphs[0].text.strip()[:255]
+            # 跳过标题段落，将剩余段落转为HTML
+            content_doc = Document()
+            for para in doc.paragraphs[1:]:
+                content_doc.add_paragraph(para.text)
+            doc_content = docx_to_html(doc)
+            # 去掉标题部分，只保留内容
+            soup = BeautifulSoup(doc_content, 'html.parser')
+            first_p = soup.find(['p', 'h1', 'h2', 'h3'])
+            if first_p:
+                first_p.decompose()
+            doc_content = str(soup).strip()
         except HTTPException:
             raise
         except Exception as e:
