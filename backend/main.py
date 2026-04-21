@@ -1143,11 +1143,21 @@ async def proxy_web(url: str = Query(..., description="要代理的网页URL")):
             if http_equiv == 'x-frame-options' or http_equiv == 'content-security-policy':
                 meta_tag.decompose()
 
-        # 7. 注入CSS修复样式（移除固定定位等可能影响iframe显示的样式）
+        # 7. 注入CSS修复样式（确保页面在iframe中正确显示）
         inject_style = soup.new_tag('style')
         inject_style.string = """
             /* 代理注入样式 - 确保页面在iframe中正确显示 */
-            body { margin: 0 !important; }
+            body { margin: 0 !important; padding: 0 !important; }
+            /* 修复图片自适应 */
+            img { max-width: 100% !important; height: auto !important; }
+            /* 修复视频自适应 */
+            video { max-width: 100% !important; height: auto !important; }
+            /* 修复溢出 */
+            html, body { overflow-x: hidden !important; }
+            /* 修复固定定位元素 */
+            [style*="position: fixed"], [style*="position:fixed"] {
+                position: absolute !important;
+            }
         """
         head = soup.find('head')
         if head:
@@ -1156,8 +1166,8 @@ async def proxy_web(url: str = Query(..., description="要代理的网页URL")):
         html_content = str(soup)
 
         return Response(
-            content=html_content.encode('utf-8'),
-            media_type="text/html; charset=utf-8",
+            content=html_content,
+            media_type='text/html; charset=utf-8',
             headers={
                 "X-Frame-Options": "ALLOWALL",
                 "Content-Security-Policy": "frame-ancestors *",

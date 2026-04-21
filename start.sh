@@ -48,6 +48,18 @@ cp -r frontend/dist backend/static
 # 启动后端
 echo "[5/5] 启动服务..."
 cd backend
+# 清理可能占用端口的旧进程
+if command -v lsof &> /dev/null; then
+    OLD_PID=$(lsof -ti:8000 2>/dev/null)
+    if [ -n "$OLD_PID" ]; then
+        echo "  清理旧进程 (PID: $OLD_PID)..."
+        kill -9 $OLD_PID 2>/dev/null
+        sleep 1
+    fi
+elif command -v fuser &> /dev/null; then
+    fuser -k 8000/tcp 2>/dev/null
+    sleep 1
+fi
 echo ""
 echo "================================"
 echo "  服务已启动！"

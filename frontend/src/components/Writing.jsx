@@ -491,19 +491,30 @@ function Writing() {
     // 在 Quill 编辑器中高亮显示错误
     if (quillRef.current && errors.length > 0) {
       const editor = quillRef.current.getEditor()
-      // 先移除所有高亮
+      // 先清除所有高亮
       const len = editor.getLength()
-      editor.formatText(0, len, 'background', false)
+      editor.formatText(0, len, { background: false })
+      // 保存当前选区
+      const savedSelection = editor.getSelection()
       // 使用 format 来高亮
       errors.forEach(err => {
         try {
-          editor.formatText(err.start, err.end - err.start, {
-            background: err.severity === 'error' ? '#fff1f0' : err.severity === 'warning' ? '#fffbe6' : '#e6f7ff',
-          })
+          const start = Math.max(0, err.start)
+          const end = Math.min(err.end, len - 1)
+          if (start < end) {
+            const color = err.severity === 'error' ? '#ffccc7' : err.severity === 'warning' ? '#fff1b8' : '#91d5ff'
+            editor.formatText(start, end - start, 'background', color)
+          }
         } catch (e) {
           // 位置可能不准确，跳过
         }
       })
+      // 恢复选区
+      if (savedSelection) {
+        try {
+          editor.setSelection(savedSelection)
+        } catch (e) {}
+      }
     }
   }
 
@@ -521,12 +532,6 @@ function Writing() {
     if (!quillRef.current || !docSearchQuery.trim()) {
       setDocSearchCount(0)
       setDocSearchIndex(0)
-      // 清除高亮
-      if (quillRef.current) {
-        const editor = quillRef.current.getEditor()
-        const text = editor.getText()
-        editor.setText(text)
-      }
       return
     }
     const editor = quillRef.current.getEditor()
@@ -789,6 +794,7 @@ function Writing() {
                             autoFocus
                             style={{flex: 1, height: '28px', border: '1px solid #d9d9d9', borderRadius: '4px', padding: '0 8px', fontSize: '13px'}}
                           />
+                          <button className="w-btn w-btn-sm w-btn-primary" onClick={handleDocSearch} style={{padding: '0 8px'}}>搜索</button>
                           <button className="w-btn w-btn-sm w-btn-default" onClick={handleDocSearchPrev} disabled={docSearchCount === 0} title="上一个">↑</button>
                           <button className="w-btn w-btn-sm w-btn-default" onClick={handleDocSearchNext} disabled={docSearchCount === 0} title="下一个">↓</button>
                           <span style={{fontSize: '12px', color: '#999', whiteSpace: 'nowrap', minWidth: '40px', textAlign: 'center'}}>

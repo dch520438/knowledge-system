@@ -44,6 +44,11 @@ if not exist backend\static\index.html (
 
 echo [3/3] Starting server...
 cd backend
+REM Kill existing process on port 8000
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8000 ^| findstr LISTENING') do (
+    taskkill /F /PID %%a >nul 2>&1
+)
+timeout /t 1 /nobreak >nul
 echo.
 echo ================================
 echo   Server started!
