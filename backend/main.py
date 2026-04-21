@@ -103,6 +103,8 @@ def search_knowledge_items(
             or_(
                 KnowledgeItem.title.contains(keyword),
                 KnowledgeItem.content.contains(keyword),
+                KnowledgeItem.category.contains(keyword),
+                KnowledgeItem.tags.contains(keyword),
             )
         )
     items = query.order_by(KnowledgeItem.created_at.desc()).all()
@@ -668,6 +670,9 @@ def export_writing_document(
         # 使用 BeautifulSoup 去除 HTML 标签，提取纯文本
         if db_doc.content:
             soup = BeautifulSoup(db_doc.content, 'html.parser')
+            # 将 <br> 替换为换行符，确保换行正确
+            for br in soup.find_all('br'):
+                br.replace_with('\n')
             clean_text = soup.get_text(separator='\n')
             # 按段落分割并添加到文档
             paragraphs = clean_text.split('\n')
@@ -842,6 +847,8 @@ def global_search(
         or_(
             KnowledgeItem.title.contains(q),
             KnowledgeItem.content.contains(q),
+            KnowledgeItem.category.contains(q),
+            KnowledgeItem.tags.contains(q),
         )
     ).order_by(KnowledgeItem.created_at.desc()).all()
 
