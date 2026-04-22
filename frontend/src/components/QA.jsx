@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { qaAPI, knowledgeAPI, searchAPI } from '../api'
+import { qaAPI, knowledgeAPI, searchAPI, llmAPI } from '../api'
 import './QA.css'
 
 function QA() {
@@ -16,6 +16,10 @@ function QA() {
   const [typingText, setTypingText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const typingTimerRef = useRef(null)
+
+  // 大模型增强
+  const [llmLoading, setLlmLoading] = useState(false)
+  const [useLLM, setUseLLM] = useState(false)
 
   // 模态框
   const [modalVisible, setModalVisible] = useState(false)
@@ -76,51 +80,101 @@ function QA() {
     setIsTyping(false)
     setTypingText('')
 
-    try {
-      const result = await qaAPI.smartAnswer(smartQuestion)
-
-      // 提取回答和引用
-      const answer = result.answer || result.response || '暂无回答'
-      const refs = result.references || result.sources || []
-
-      setSmartReferences(refs)
-
-      // 打字效果
-      setIsTyping(true)
-      let currentIndex = 0
-      const fullText = answer
-
-      const typeNext = () => {
-        if (currentIndex < fullText.length) {
-          // 每次添加1-3个字符，模拟打字速度
-          const chunkSize = Math.min(3, fullText.length - currentIndex)
-          currentIndex += chunkSize
-          setTypingText(fullText.substring(0, currentIndex))
-          typingTimerRef.current = setTimeout(typeNext, 30)
-        } else {
-          setIsTyping(false)
-          setSmartAnswer(fullText)
-          setTypingText('')
-        }
-      }
-
-      typeNext()
-
-      // 自动保存问答记录
+    if (useLLM) {
+      // 使用大模型增强
+      setLlmLoading(true)
       try {
-        await qaAPI.create({
-          question: smartQuestion,
-          answer: answer,
-          references: refs,
-        })
-        fetchQAList()
-      } catch (saveErr) {
-        console.error('自动保存问答记录失败:', saveErr)
+        const result = await llmAPI.qa(smartQuestion.trim())
+        const answer = result.answer || result.content || '暂无回答'
+        const refs = result.sources || result.references || []
+
+        setSmartReferences(refs)
+
+        // 打字效果
+        setIsTyping(true)
+        let currentIndex = 0
+        const fullText = answer
+
+        const typeNext = () => {
+          if (currentIndex < fullText.length) {
+            const chunkSize = Math.min(3, fullText.length - currentIndex)
+            currentIndex += chunkSize
+            setTypingText(fullText.substring(0, currentIndex))
+            typingTimerRef.current = setTimeout(typeNext, 30)
+          } else {
+            setIsTyping(false)
+            setSmartAnswer(fullText)
+            setTypingText('')
+          }
+        }
+
+        typeNext()
+
+        // 自动保存问答记录
+        try {
+          await qaAPI.create({
+            question: smartQuestion,
+            answer: answer,
+            references: refs,
+          })
+          fetchQAList()
+        } catch (saveErr) {
+          console.error('自动保存问答记录失败:', saveErr)
+        }
+      } catch (err) {
+        setSmartError(`AI回答失败: ${err.message}`)
+      } finally {
+        setLlmLoading(false)
+        setSmartLoading(false)
       }
-    } catch (err) {
-      setSmartError(`提问失败: ${err.message}`)
-    } finally {
-      setSmartLoading(false)
+    } else {
+      // 使用原有的关键词匹配
+      try {
+        const result = await qaAPI.smartAnswer(smartQuestion)
+
+        // 提取回答和引用
+        const answer = result.answer || result.response || '暂无回答'
+        const refs = result.references || result.sources || []
+
+        setSmartReferences(refs)
+
+        // 打字效果
+        setIsTyping(true)
+        let currentIndex = 0
+        const fullText = answer
+
+        const typeNext = () => {
+          if (currentIndex < fullText.length) {
+            // 每次添加1-3个字符，模拟打字速度
+            const chunkSize = Math.min(3, fullText.length - currentIndex)
+            currentIndex += chunkSize
+            setTypingText(fullText.substring(0, currentIndex))
+            typingTimerRef.current = setTimeout(typeNext, 30)
+          } else {
+            setIsTyping(false)
+            setSmartAnswer(fullText)
+            setTypingText('')
+          }
+        }
+
+        typeNext()
+
+        // 自动保存问答记录
+        try {
+          await qaAPI.create({
+            question: smartQuestion,
+            answer: answer,
+            references: refs,
+          })
+          fetchQAList()
+        } catch (saveErr) {
+          console.error('自动保存问答记录失败:', saveErr)
+        }
+      } catch (err) {
+        setSmartError(`提问失败: ${err.message}`)
+      } finally {
+        setSmartLoading(false)
+      }
     }
   }
 
@@ -249,6 +303,10 @@ function QA() {
           </button>
         </div>
         <div className="qa-smart-input-area">
+          <label style={{display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#666', cursor: 'pointer', marginBottom: '8px'}}>
+            <input type="checkbox" checked={useLLM} onChange={(e) => setUseLLM(e.target.checked)} />
+            🤖 使用大模型增强
+          </label>
           <textarea
             className="qa-smart-input"
             placeholder="请输入您的问题...（按 Enter 提问，Shift+Enter 换行）"

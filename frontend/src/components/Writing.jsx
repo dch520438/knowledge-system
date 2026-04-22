@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import ReactQuill from 'react-quill-new'
 import 'react-quill-new/dist/quill.snow.css'
-import { writingAPI, knowledgeAPI } from '../api'
+import { writingAPI, knowledgeAPI, llmAPI } from '../api'
 import Proofread from './Proofread'
 import './Writing.css'
 
@@ -144,6 +144,11 @@ function Writing() {
   const [docReplaceQuery, setDocReplaceQuery] = useState('')
   const [docReplaceAll, setDocReplaceAll] = useState(false)
   const [selectedTextStats, setSelectedTextStats] = useState(null)
+
+  // 大模型写作功能
+  const [llmLoading, setLlmLoading] = useState(false)
+  const [llmResult, setLlmResult] = useState('')
+  const [llmResultVisible, setLlmResultVisible] = useState(false)
 
   // 字数统计
   const wordStats = useMemo(() => {
@@ -661,6 +666,53 @@ function Writing() {
     setDocSearchIndex(0)
   }
 
+  // ========== 大模型写作功能 ==========
+  const handleLLMWriting = async (action) => {
+    const editor = quillRef.current
+    if (!editor) return
+    const text = editor.getText().trim()
+    if (!text) { alert('请先输入内容'); return }
+
+    setLlmLoading(true)
+    setLlmResult('')
+    try {
+      const result = await llmAPI.writing(action, text)
+      setLlmResult(result.content)
+      setLlmResultVisible(true)
+    } catch (err) {
+      if (err.message.includes('未配置')) {
+        alert('请先在设置中配置并激活大模型')
+      } else {
+        alert('AI处理失败: ' + err.message)
+      }
+    } finally {
+      setLlmLoading(false)
+    }
+  }
+
+  const insertLlmResult = () => {
+    if (!llmResult || !quillRef.current) return
+    const editor = quillRef.current.getEditor()
+    const pos = editor.getSelection()?.index || editor.getLength()
+    editor.insertText(pos, llmResult)
+    setLlmResultVisible(false)
+    setLlmResult('')
+  }
+
+  const replaceWithLlmResult = () => {
+    if (!llmResult || !quillRef.current) return
+    const editor = quillRef.current.getEditor()
+    const selection = editor.getSelection()
+    if (selection && selection.length > 0) {
+      editor.deleteText(selection.index, selection.length)
+      editor.insertText(selection.index, llmResult)
+    } else {
+      editor.setText(llmResult)
+    }
+    setLlmResultVisible(false)
+    setLlmResult('')
+  }
+
   const formatDate = (dateStr) => {
     if (!dateStr) return ''
     const d = new Date(dateStr)
@@ -765,6 +817,11 @@ function Writing() {
                   <button className="w-btn w-btn-default" onClick={() => setProofreadVisible(!proofreadVisible)}>
                     核稿
                   </button>
+                  <span className="toolbar-separator" />
+                  <button className="w-btn" onClick={() => handleLLMWriting('polish')} disabled={llmLoading} title="AI润色">✨润色</button>
+                  <button className="w-btn" onClick={() => handleLLMWriting('continue')} disabled={llmLoading} title="AI续写">✍️续写</button>
+                  <button className="w-btn" onClick={() => handleLLMWriting('summarize')} disabled={llmLoading} title="AI总结">📝总结</button>
+                  <button className="w-btn" onClick={() => handleLLMWriting('expand')} disabled={llmLoading} title="AI扩写">📐扩写</button>
                   <button
                     className="w-btn w-btn-default"
                     onClick={handleImportDoc}
@@ -1181,6 +1238,26 @@ function Writing() {
                 </button>
               </div>
               <button className="w-btn w-btn-default" onClick={() => setWebSearchModalVisible(false)}>关闭</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI 结果弹窗 */}
+      {llmResultVisible && (
+        <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000}}>
+          <div style={{background: '#fff', borderRadius: '8px', padding: '24px', width: '600px', maxHeight: '70vh', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 16px rgba(0,0,0,0.15)'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px'}}>
+              <h3 style={{margin: 0, fontSize: '15px'}}>🤖 AI 处理结果</h3>
+              <button onClick={() => setLlmResultVisible(false)} style={{background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#999'}}>×</button>
+            </div>
+            <div style={{flex: 1, overflowY: 'auto', padding: '12px', background: '#f9f9f9', borderRadius: '4px', marginBottom: '16px', whiteSpace: 'pre-wrap', lineHeight: '1.8', fontSize: '14px'}}>
+              {llmLoading ? '处理中...' : llmResult}
+            </div>
+            <div style={{display: 'flex', gap: '8px', justifyContent: 'flex-end'}}>
+              <button className="w-btn w-btn-default" onClick={() => setLlmResultVisible(false)}>取消</button>
+              <button className="w-btn w-btn-default" onClick={insertLlmResult}>插入到文末</button>
+              <button className="w-btn w-btn-primary" onClick={replaceWithLlmResult}>替换选中内容</button>
             </div>
           </div>
         </div>

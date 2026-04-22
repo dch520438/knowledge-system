@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { knowledgeAPI, writingAPI } from '../api'
+import { knowledgeAPI, writingAPI, llmAPI } from '../api'
 import './KnowledgeBase.css'
 
 // 预置网站快捷按钮
@@ -60,6 +60,8 @@ function KnowledgeBase() {
   const [webContentModalVisible, setWebContentModalVisible] = useState(false)
   const [webContentTitle, setWebContentTitle] = useState('')
   const [webContentText, setWebContentText] = useState('')
+  const [webContentCategory, setWebContentCategory] = useState('网页采集')
+  const [webContentTags, setWebContentTags] = useState('网页采集')
 
   // 从写作文稿新建知识模态框
   const [writingModalVisible, setWritingModalVisible] = useState(false)
@@ -77,6 +79,9 @@ function KnowledgeBase() {
 
   // 文件导入 input ref
   const importFileRef = useRef(null)
+
+  // 大模型功能
+  const [llmLoading, setLlmLoading] = useState(false)
 
   useEffect(() => {
     fetchKnowledge()
@@ -360,8 +365,8 @@ function KnowledgeBase() {
       await knowledgeAPI.create({
         title: webContentTitle,
         content: webContentText,
-        category: '网页采集',
-        tags: '网页采集',
+        category: webContentCategory || '网页采集',
+        tags: webContentTags || '网页采集',
       })
       setWebContentModalVisible(false)
       alert('✅ 内容已成功添加到知识库')
@@ -459,6 +464,48 @@ function KnowledgeBase() {
       fetchCategories()
     } catch (err) {
       alert('排重失败: ' + err.message)
+    }
+  }
+
+  // ========== 大模型功能 ==========
+  const handleLLMClassify = async (content) => {
+    if (!content) { alert('没有可处理的内容'); return }
+    setLlmLoading(true)
+    try {
+      const result = await llmAPI.knowledge('classify', content)
+      try {
+        const data = JSON.parse(result.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
+        if (data.category) setFormCategory(data.category)
+        if (data.tags) setFormTags(Array.isArray(data.tags) ? data.tags.join(', ') : data.tags)
+        alert(`✅ 推荐分类：${data.category}\n推荐标签：${data.tags.join(', ')}`)
+      } catch {
+        alert('AI推荐结果：\n' + result.content)
+      }
+    } catch (err) {
+      if (err.message.includes('未配置')) {
+        alert('请先在设置中配置并激活大模型')
+      } else {
+        alert('AI处理失败: ' + err.message)
+      }
+    } finally {
+      setLlmLoading(false)
+    }
+  }
+
+  const handleLLMSummarize = async (content) => {
+    if (!content) { alert('没有可处理的内容'); return }
+    setLlmLoading(true)
+    try {
+      const result = await llmAPI.knowledge('summarize', content)
+      alert('📝 AI总结：\n' + result.content)
+    } catch (err) {
+      if (err.message.includes('未配置')) {
+        alert('请先在设置中配置并激活大模型')
+      } else {
+        alert('AI处理失败: ' + err.message)
+      }
+    } finally {
+      setLlmLoading(false)
     }
   }
 
@@ -645,7 +692,7 @@ function KnowledgeBase() {
           <div style={{fontSize: '15px', fontWeight: 'bold', marginBottom: '12px', color: '#333'}}>📚 随机推荐</div>
           <div className="kb-grid">
             {dashboardItems.map((item) => (
-              <div className="kb-card" key={item.id} onClick={() => openDetailModal(item)} style={{cursor: 'pointer'}}>
+              <div className="kb-card" key={item.id} onClick={() => { if (!batchMode) openDetailModal(item); }} style={{cursor: 'pointer'}}>
                 <div className="kb-card-header">
                   <h3 className="kb-card-title">{item.title}</h3>
                   {item.category && <span className="kb-card-category">{item.category}</span>}
@@ -683,7 +730,7 @@ function KnowledgeBase() {
             </div>
           )}
           {knowledgeList.map((item) => (
-            <div className="kb-card" key={item.id} onClick={() => openDetailModal(item)} style={{cursor: 'pointer'}}>
+            <div className="kb-card" key={item.id} onClick={() => { if (!batchMode) openDetailModal(item); }} style={{cursor: 'pointer'}}>
               {batchMode && (
                 <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={(e) => { e.stopPropagation(); toggleSelect(item.id); }} style={{marginRight: '8px', cursor: 'pointer'}} />
               )}
@@ -968,6 +1015,14 @@ function KnowledgeBase() {
                   autoCorrect="off"
                 />
               </div>
+              <div style={{marginBottom: '12px'}}>
+                <label style={{display: 'block', marginBottom: '4px', fontSize: '13px', color: '#666'}}>分类</label>
+                <input type="text" value={webContentCategory} onChange={(e) => setWebContentCategory(e.target.value)} placeholder="输入分类" style={{width: '100%', height: '32px', border: '1px solid #d9d9d9', borderRadius: '4px', padding: '0 8px', boxSizing: 'border-box'}} />
+              </div>
+              <div style={{marginBottom: '12px'}}>
+                <label style={{display: 'block', marginBottom: '4px', fontSize: '13px', color: '#666'}}>标签（逗号分隔）</label>
+                <input type="text" value={webContentTags} onChange={(e) => setWebContentTags(e.target.value)} placeholder="标签1,标签2" style={{width: '100%', height: '32px', border: '1px solid #d9d9d9', borderRadius: '4px', padding: '0 8px', boxSizing: 'border-box'}} />
+              </div>
               <div className="kb-form-item">
                 <label className="kb-form-label">内容</label>
                 <textarea
@@ -1191,6 +1246,12 @@ function KnowledgeBase() {
             </div>
             <div className="kb-modal-footer">
               <button className="kb-btn kb-btn-default" onClick={() => setDetailItem(null)}>关闭</button>
+              <button className="kb-btn kb-btn-default" onClick={() => handleLLMClassify(detailItem.content)} disabled={llmLoading} style={{fontSize: '12px'}}>
+                🏷️ AI推荐分类标签
+              </button>
+              <button className="kb-btn kb-btn-default" onClick={() => handleLLMSummarize(detailItem.content)} disabled={llmLoading} style={{fontSize: '12px'}}>
+                📝 AI总结
+              </button>
               <button className="kb-btn kb-btn-primary" onClick={(e) => { setDetailItem(null); openEditModal(detailItem); }}>编辑</button>
             </div>
           </div>
