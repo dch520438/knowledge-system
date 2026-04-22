@@ -5,12 +5,13 @@ import './KnowledgeBase.css'
 // 预置网站快捷按钮
 const PRESET_SITES = [
   { name: '人民网', url: 'http://www.people.com.cn' },
+  { name: '新华网', url: 'http://www.xinhuanet.com' },
   { name: '求是网', url: 'http://www.qstheory.cn' },
   { name: '中国纪检监察网', url: 'http://www.ccdi.gov.cn' },
-  { name: '学习强国', url: 'https://www.xuexi.cn' },
-  { name: '汉典', url: 'http://www.zdic.net' },
-  { name: '深言达意', url: 'https://shenyandayi.com' },
-  { name: '写易', url: 'https://www.xieyi.com' },
+  { name: '中国政府网', url: 'http://www.gov.cn' },
+  { name: '百度', url: 'http://www.baidu.com' },
+  { name: '必应', url: 'http://www.bing.com' },
+  { name: '搜狗', url: 'http://www.sogou.com' },
 ]
 
 const toProxyUrl = (url) => {

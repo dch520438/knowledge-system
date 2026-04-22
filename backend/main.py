@@ -6,7 +6,7 @@ FastAPI主应用模块
 """
 
 from typing import Optional, List
-from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File, Request
 from fastapi.responses import StreamingResponse, Response, FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -937,41 +937,9 @@ def export_writing_document(
         doc.add_heading(db_doc.title, level=1)
         if db_doc.content:
             content_doc = html_to_docx(db_doc.content)
-            # 将内容文档的段落复制到主文档
-            for para in content_doc.paragraphs:
-                new_para = doc.add_paragraph()
-                new_para.paragraph_format.first_line_indent = para.paragraph_format.first_line_indent
-                new_para.paragraph_format.left_indent = para.paragraph_format.left_indent
-                new_para.paragraph_format.alignment = para.paragraph_format.alignment
-                new_para.paragraph_format.space_before = para.paragraph_format.space_before
-                new_para.paragraph_format.space_after = para.paragraph_format.space_after
-                if para.style and para.style.name and para.style.name.startswith('Heading'):
-                    try:
-                        level = int(para.style.name.split()[-1])
-                        # 删除刚添加的段落，改为标题
-                        p_element = new_para._element
-                        p_element.getparent().remove(p_element)
-                        doc.add_heading(para.text, level=level)
-                        continue
-                    except (ValueError, IndexError):
-                        pass
-                if para.style and 'List' in (para.style.name or ''):
-                    style_name = 'List Bullet' if 'Bullet' in para.style.name else 'List Number'
-                    p_element = new_para._element
-                    p_element.getparent().remove(p_element)
-                    doc.add_paragraph(style=style_name)
-                    new_para = doc.paragraphs[-1]
-                # 复制 runs（保留格式）
-                for run in para.runs:
-                    new_run = new_para.add_run(run.text)
-                    new_run.bold = run.bold
-                    new_run.italic = run.italic
-                    new_run.underline = run.underline
-                    new_run.strike = run.strike
-                    if run.font.size:
-                        new_run.font.size = run.font.size
-                    if run.font.name:
-                        new_run.font.name = run.font.name
+            # 将内容文档的所有元素追加到主文档
+            for element in content_doc.element.body:
+                doc.element.body.append(element)
         buffer = io.BytesIO()
         doc.save(buffer)
         buffer.seek(0)
@@ -1011,19 +979,20 @@ async def import_writing_document(
             doc = Document(io.BytesIO(content_bytes))
             if not doc.paragraphs:
                 raise HTTPException(status_code=400, detail="DOCX文件中没有有效内容")
-            # 使用第一段作为标题，其余作为HTML内容（保留格式）
+            # 使用第一段作为标题
             doc_title = doc.paragraphs[0].text.strip()[:255]
-            # 跳过标题段落，将剩余段落转为HTML
-            content_doc = Document()
-            for para in doc.paragraphs[1:]:
-                content_doc.add_paragraph(para.text)
+            if not doc_title:
+                doc_title = filename.rsplit('.', 1)[0][:255]
+            # 将所有段落转为HTML（保留格式）
             doc_content = docx_to_html(doc)
-            # 去掉标题部分，只保留内容
+            # 去掉标题段落，只保留内容
             soup = BeautifulSoup(doc_content, 'html.parser')
             first_p = soup.find(['p', 'h1', 'h2', 'h3'])
             if first_p:
                 first_p.decompose()
             doc_content = str(soup).strip()
+            if not doc_content:
+                doc_content = '<p></p>'
         except HTTPException:
             raise
         except Exception as e:
@@ -1463,6 +1432,15 @@ async def proxy_web(url: str = Query(..., description="要代理的网页URL")):
             elif not action:
                 form_tag['action'] = make_proxy_url(base_url)
             # 保留原始 method，不强制改为 GET
+            # 添加隐藏字段传递目标URL（用于POST代理）
+            hidden_input = soup.new_tag('input')
+            hidden_input.attrs['type'] = 'hidden'
+            hidden_input.attrs['name'] = 'url'
+            hidden_input.attrs['value'] = absolute_url if action else base_url
+            form_tag.append(hidden_input)
+            # 将 form method 改为 POST 指向我们的代理
+            form_tag['method'] = 'POST'
+            form_tag['action'] = '/api/proxy/web'
 
         # 4. 重写 <meta http-equiv="refresh"> 跳转
         for meta_tag in soup.find_all('meta', attrs={'http-equiv': 'refresh'}):
@@ -1491,21 +1469,11 @@ async def proxy_web(url: str = Query(..., description="要代理的网页URL")):
             if http_equiv == 'x-frame-options' or http_equiv == 'content-security-policy':
                 meta_tag.decompose()
 
-        # 7. 注入CSS修复样式（确保页面在iframe中正确显示）
+        # 7. 注入CSS（最小化干预，保持原貌）
         inject_style = soup.new_tag('style')
         inject_style.string = """
-            /* 代理注入样式 - 确保页面在iframe中正确显示 */
-            body { margin: 0 !important; padding: 0 !important; }
-            /* 修复图片自适应 */
+            /* 代理注入样式 - 最小化干预 */
             img { max-width: 100% !important; height: auto !important; }
-            /* 修复视频自适应 */
-            video { max-width: 100% !important; height: auto !important; }
-            /* 修复溢出 */
-            html, body { overflow-x: hidden !important; }
-            /* 修复固定定位元素 */
-            [style*="position: fixed"], [style*="position:fixed"] {
-                position: absolute !important;
-            }
         """
         head = soup.find('head')
         if head:
@@ -1529,6 +1497,147 @@ async def proxy_web(url: str = Query(..., description="要代理的网页URL")):
         raise HTTPException(status_code=502, detail="无法连接到目标网页")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"代理网页时出错: {str(e)}")
+
+@app.post("/api/proxy/web", summary="网页代理（POST）")
+async def proxy_web_post(request: Request):
+    """POST方式代理网页（用于表单提交如搜索）"""
+    form_data = await request.form()
+    target_url = form_data.get("url", "")
+    if not target_url:
+        raise HTTPException(status_code=400, detail="缺少url参数")
+    
+    # 收集表单中除 url 外的其他字段作为 POST 数据
+    post_data = {k: v for k, v in form_data.items() if k != "url"}
+    
+    try:
+        parsed = urlparse(target_url)
+        if parsed.scheme not in ('http', 'https'):
+            raise HTTPException(status_code=400, detail="仅支持 http/https 协议")
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=400, detail="无效的URL")
+    
+    try:
+        async with httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=20.0,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+                'Accept-Encoding': 'identity',
+                'Referer': target_url,
+            }
+        ) as client:
+            if post_data:
+                response = await client.post(target_url, data=post_data)
+            else:
+                response = await client.get(target_url)
+        
+        # 复用 GET 代理的 HTML 处理逻辑
+        content_type = response.headers.get('content-type', 'text/html')
+        if 'text/html' not in content_type:
+            return Response(
+                content=response.content,
+                media_type=content_type,
+                headers={
+                    "X-Frame-Options": "ALLOWALL",
+                    "Content-Security-Policy": "frame-ancestors *",
+                    "Access-Control-Allow-Origin": "*",
+                }
+            )
+        
+        html_content = response.text
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        base_url = target_url
+        parsed_base = urlparse(base_url)
+        base_origin = f"{parsed_base.scheme}://{parsed_base.netloc}"
+        
+        def should_proxy(href):
+            if not href:
+                return False
+            href = href.strip()
+            if href.startswith('#') or href.startswith('javascript:') or href.startswith('mailto:') or href.startswith('tel:'):
+                return False
+            if href.startswith('//'):
+                return False
+            return True
+        
+        def make_proxy_url(t_url):
+            return f"/api/proxy/web?url={url_quote(t_url, safe='')}"
+        
+        for a_tag in soup.find_all('a', href=True):
+            original_href = a_tag['href']
+            if not should_proxy(original_href):
+                continue
+            absolute_url = urljoin(base_url, original_href)
+            a_tag['href'] = make_proxy_url(absolute_url)
+            if 'target' in a_tag.attrs:
+                del a_tag['target']
+        
+        for iframe_tag in soup.find_all('iframe', src=True):
+            original_src = iframe_tag['src']
+            if original_src.startswith('javascript:') or original_src.startswith('//'):
+                continue
+            absolute_url = urljoin(base_url, original_src)
+            iframe_tag['src'] = make_proxy_url(absolute_url)
+        
+        for form_tag in soup.find_all('form'):
+            action = form_tag.get('action', '')
+            if action and not action.startswith('javascript:'):
+                absolute_url = urljoin(base_url, action)
+                form_tag['action'] = make_proxy_url(absolute_url)
+            elif not action:
+                form_tag['action'] = make_proxy_url(base_url)
+        
+        for meta_tag in soup.find_all('meta', attrs={'http-equiv': 'refresh'}):
+            content = meta_tag.get('content', '')
+            match = re.search(r'url=(.+)', content, re.IGNORECASE)
+            if match:
+                redirect_url = match.group(1).strip().strip("'\"")
+                absolute_url = urljoin(base_url, redirect_url)
+                meta_tag['content'] = content[:match.start(1)] + make_proxy_url(absolute_url)
+        
+        for area_tag in soup.find_all('area', href=True):
+            original_href = area_tag['href']
+            if not should_proxy(original_href):
+                continue
+            absolute_url = urljoin(base_url, original_href)
+            area_tag['href'] = make_proxy_url(absolute_url)
+        
+        for meta_tag in soup.find_all('meta'):
+            http_equiv = meta_tag.get('http-equiv', '').lower()
+            if http_equiv == 'x-frame-options' or http_equiv == 'content-security-policy':
+                meta_tag.decompose()
+        
+        inject_style = soup.new_tag('style')
+        inject_style.string = """
+            img { max-width: 100% !important; height: auto !important; }
+        """
+        head = soup.find('head')
+        if head:
+            head.append(inject_style)
+        
+        html_content = str(soup)
+        
+        return Response(
+            content=html_content,
+            media_type='text/html; charset=utf-8',
+            headers={
+                "X-Frame-Options": "ALLOWALL",
+                "Content-Security-Policy": "frame-ancestors *",
+                "Access-Control-Allow-Origin": "*",
+            }
+        )
+    
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="网页加载超时，请稍后重试")
+    except httpx.ConnectError:
+        raise HTTPException(status_code=502, detail="无法连接到目标网页")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"代理网页失败: {str(e)}")
 
 
 # ==================== 静态文件服务（生产模式） ====================

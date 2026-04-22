@@ -373,6 +373,27 @@
 .writing-editor-main .ql-container.ql-snow .ql-editor li,
 .writing-editor-main .ql-container.ql-snow .ql-editor div {
   line-height: 1.8 !important;
+  text-indent: 2em !important;
+}
+
+.writing-editor-main .ql-container.ql-snow .ql-editor h1,
+.writing-editor-main .ql-container.ql-snow .ql-editor h2,
+.writing-editor-main .ql-container.ql-snow .ql-editor h3,
+.writing-editor-main .ql-container.ql-snow .ql-editor h4,
+.writing-editor-main .ql-container.ql-snow .ql-editor h5,
+.writing-editor-main .ql-container.ql-snow .ql-editor h6 {
+  text-indent: 0 !important;
+}
+
+.writing-editor-main .ql-container.ql-snow .ql-editor ul,
+.writing-editor-main .ql-container.ql-snow .ql-editor ol,
+.writing-editor-main .ql-container.ql-snow .ql-editor blockquote,
+.writing-editor-main .ql-container.ql-snow .ql-editor pre {
+  text-indent: 0 !important;
+}
+
+.writing-editor-main .ql-container.ql-snow .ql-editor p {
+  margin-bottom: 0.5em !important;
 }
 
 .writing-editor-main .ql-container.ql-snow .ql-editor h1 {
