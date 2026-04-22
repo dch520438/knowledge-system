@@ -40,6 +40,9 @@ function KnowledgeBase() {
   const [formContent, setFormContent] = useState('')
   const [formCategory, setFormCategory] = useState('')
   const [formTags, setFormTags] = useState('')
+  const [detailItem, setDetailItem] = useState(null)
+  const [isDashboard, setIsDashboard] = useState(true)
+  const [dashboardItems, setDashboardItems] = useState([])
 
   // 网页采集模态框
   const [webModalVisible, setWebModalVisible] = useState(false)
@@ -100,10 +103,17 @@ function KnowledgeBase() {
         if (searchQuery) params.keyword = searchQuery
         if (selectedCategory) params.category = selectedCategory
         data = await knowledgeAPI.search(params)
+        setKnowledgeList(Array.isArray(data) ? data : data.results || [])
+        setIsDashboard(false)
       } else {
         data = await knowledgeAPI.getAll()
+        const allItems = Array.isArray(data) ? data : data.results || []
+        setKnowledgeList(allItems)
+        // 随机取5个作为仪表盘展示
+        const shuffled = [...allItems].sort(() => Math.random() - 0.5)
+        setDashboardItems(shuffled.slice(0, 5))
+        setIsDashboard(true)
       }
-      setKnowledgeList(Array.isArray(data) ? data : data.results || [])
     } catch (err) {
       console.error('获取知识库失败:', err)
     } finally {
@@ -121,6 +131,7 @@ function KnowledgeBase() {
   }
 
   const handleSearch = () => {
+    setIsDashboard(false)
     fetchKnowledge()
   }
 
@@ -161,6 +172,10 @@ function KnowledgeBase() {
   const closeModal = () => {
     setModalVisible(false)
     setEditingItem(null)
+  }
+
+  const openDetailModal = (item) => {
+    setDetailItem(item)
   }
 
   const handleSubmit = async () => {
@@ -318,9 +333,7 @@ function KnowledgeBase() {
     const title = text.substring(0, 50) + (text.length > 50 ? '...' : '')
     try {
       await knowledgeAPI.create({ title, content: text, category: '网页采集', tags: '网页采集' })
-      alert('内容已添加到知识库')
-      fetchKnowledge()
-      fetchCategories()
+      alert('✅ 内容已成功添加到知识库')
     } catch (err) {
       alert('添加失败: ' + err.message)
     }
@@ -351,9 +364,7 @@ function KnowledgeBase() {
         tags: '网页采集',
       })
       setWebContentModalVisible(false)
-      closeWebModal()
-      fetchKnowledge()
-      fetchCategories()
+      alert('✅ 内容已成功添加到知识库')
     } catch (err) {
       alert(`保存失败: ${err.message}`)
     }
@@ -540,6 +551,11 @@ function KnowledgeBase() {
       </div>
 
       <div className="kb-toolbar-actions">
+        {!isDashboard && (
+          <button className="kb-btn kb-btn-default" onClick={() => { setSearchQuery(''); setSelectedCategory(''); setIsDashboard(true); fetchKnowledge(); }} style={{marginRight: '8px'}}>
+            ← 返回仪表盘
+          </button>
+        )}
         <button
           className="kb-btn kb-btn-default"
           onClick={() => { setBatchMode(!batchMode); setSelectedIds([]); }}
@@ -609,65 +625,88 @@ function KnowledgeBase() {
         <div className="kb-loading">加载中...</div>
       ) : knowledgeList.length === 0 ? (
         <div className="kb-empty">暂无知识条目</div>
+      ) : isDashboard ? (
+        /* 仪表盘模式：显示统计信息和随机5卡片 */
+        <div>
+          <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px'}}>
+            <div style={{background: 'linear-gradient(135deg, #1890ff, #096dd9)', borderRadius: '8px', padding: '20px', color: '#fff'}}>
+              <div style={{fontSize: '28px', fontWeight: 'bold'}}>{knowledgeList.length}</div>
+              <div style={{fontSize: '13px', opacity: 0.85}}>知识总量</div>
+            </div>
+            <div style={{background: 'linear-gradient(135deg, #52c41a, #389e0d)', borderRadius: '8px', padding: '20px', color: '#fff'}}>
+              <div style={{fontSize: '28px', fontWeight: 'bold'}}>{categories.length}</div>
+              <div style={{fontSize: '13px', opacity: 0.85}}>分类数量</div>
+            </div>
+            <div style={{background: 'linear-gradient(135deg, #faad14, #d48806)', borderRadius: '8px', padding: '20px', color: '#fff'}}>
+              <div style={{fontSize: '28px', fontWeight: 'bold'}}>{knowledgeList.reduce((sum, item) => sum + (item.content ? item.content.length : 0), 0)}</div>
+              <div style={{fontSize: '13px', opacity: 0.85}}>总字数</div>
+            </div>
+          </div>
+          <div style={{fontSize: '15px', fontWeight: 'bold', marginBottom: '12px', color: '#333'}}>📚 随机推荐</div>
+          <div className="kb-grid">
+            {dashboardItems.map((item) => (
+              <div className="kb-card" key={item.id} onClick={() => openDetailModal(item)} style={{cursor: 'pointer'}}>
+                <div className="kb-card-header">
+                  <h3 className="kb-card-title">{item.title}</h3>
+                  {item.category && <span className="kb-card-category">{item.category}</span>}
+                </div>
+                <p className="kb-card-summary">
+                  {(item.content || '').substring(0, 100)}
+                  {(item.content || '').length > 100 ? '...' : ''}
+                </p>
+                {item.tags && (
+                  <div className="kb-card-tags">
+                    {(Array.isArray(item.tags) ? item.tags : item.tags.split(',').filter(t => t.trim())).map((tag, i) => (
+                      <span className="kb-tag" key={i}>{typeof tag === 'string' ? tag.trim() : tag}</span>
+                    ))}
+                  </div>
+                )}
+                <div className="kb-card-footer">
+                  <span className="kb-card-time">{formatDate(item.created_at || item.createdAt)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{textAlign: 'center', marginTop: '16px'}}>
+            <button className="kb-btn kb-btn-default" onClick={() => { setIsDashboard(false); }}>
+              查看全部知识
+            </button>
+          </div>
+        </div>
       ) : (
+        /* 列表模式：显示全部搜索/分类结果 */
         <div className="kb-grid">
           {batchMode && (
             <div style={{gridColumn: '1 / -1', marginBottom: '8px'}}>
-              <input
-                type="checkbox"
-                checked={selectedIds.length === knowledgeList.length && knowledgeList.length > 0}
-                onChange={toggleSelectAll}
-                style={{marginRight: '8px', cursor: 'pointer'}}
-              />
+              <input type="checkbox" checked={selectedIds.length === knowledgeList.length && knowledgeList.length > 0} onChange={toggleSelectAll} style={{marginRight: '8px', cursor: 'pointer'}} />
               <span style={{fontSize: '13px', color: '#666'}}>全选</span>
             </div>
           )}
           {knowledgeList.map((item) => (
-            <div className="kb-card" key={item.id}>
+            <div className="kb-card" key={item.id} onClick={() => openDetailModal(item)} style={{cursor: 'pointer'}}>
               {batchMode && (
-                <input
-                  type="checkbox"
-                  checked={selectedIds.includes(item.id)}
-                  onChange={() => toggleSelect(item.id)}
-                  style={{marginRight: '8px', cursor: 'pointer'}}
-                />
+                <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={(e) => { e.stopPropagation(); toggleSelect(item.id); }} style={{marginRight: '8px', cursor: 'pointer'}} />
               )}
               <div className="kb-card-header">
                 <h3 className="kb-card-title">{item.title}</h3>
-                {item.category && (
-                  <span className="kb-card-category">{item.category}</span>
-                )}
+                {item.category && <span className="kb-card-category">{item.category}</span>}
               </div>
               <p className="kb-card-summary">
                 {(item.content || '').substring(0, 100)}
-                {(item.content || '').length > 100 ? '...' : ''}
+                {(item.content || '').length > 100 ? '...' : ''
               </p>
-              {item.tags && item.tags.length > 0 && (
+              {item.tags && (
                 <div className="kb-card-tags">
-                  {(Array.isArray(item.tags) ? item.tags : []).map((tag, i) => (
-                    <span className="kb-tag" key={i}>
-                      {tag}
-                    </span>
+                  {(Array.isArray(item.tags) ? item.tags : item.tags.split(',').filter(t => t.trim())).map((tag, i) => (
+                    <span className="kb-tag" key={i}>{typeof tag === 'string' ? tag.trim() : tag}</span>
                   ))}
                 </div>
               )}
               <div className="kb-card-footer">
-                <span className="kb-card-time">
-                  {formatDate(item.created_at || item.createdAt)}
-                </span>
+                <span className="kb-card-time">{formatDate(item.created_at || item.createdAt)}</span>
                 <div className="kb-card-actions">
-                  <button
-                    className="kb-btn kb-btn-link"
-                    onClick={() => openEditModal(item)}
-                  >
-                    编辑
-                  </button>
-                  <button
-                    className="kb-btn kb-btn-link kb-btn-danger"
-                    onClick={() => handleDelete(item)}
-                  >
-                    删除
-                  </button>
+                  <button className="kb-btn kb-btn-link" onClick={(e) => { e.stopPropagation(); openEditModal(item); }}>编辑</button>
+                  <button className="kb-btn kb-btn-link kb-btn-danger" onClick={(e) => { e.stopPropagation(); handleDelete(item); }}>删除</button>
                 </div>
               </div>
             </div>
@@ -677,7 +716,7 @@ function KnowledgeBase() {
 
       {/* ========== 新建/编辑知识模态框 ========== */}
       {modalVisible && (
-        <div className="kb-modal-overlay" onClick={closeModal}>
+        <div className="kb-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
           <div className="kb-modal" onClick={(e) => e.stopPropagation()}>
             <div className="kb-modal-header">
               <h2>{editingItem ? '编辑知识' : '新建知识'}</h2>
@@ -855,7 +894,30 @@ function KnowledgeBase() {
                     className="kb-web-iframe"
                     title="网页采集"
                     sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-top-navigation-by-user-activation"
-                    onLoad={() => { setIframeLoading(false); }}
+                    onLoad={() => {
+                      setIframeLoading(false)
+                      // 拦截 iframe 内链接点击，在当前 iframe 中打开
+                      try {
+                        const iframe = document.querySelector('.kb-web-iframe')
+                        if (iframe && iframe.contentWindow) {
+                          const doc = iframe.contentDocument
+                          if (doc) {
+                            doc.addEventListener('click', (e) => {
+                              const link = e.target.closest('a')
+                              if (link && link.href) {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setWebUrl(link.href)
+                                setIframeKey(prev => prev + 1)
+                                setIframeLoading(true)
+                              }
+                            }, true)
+                          }
+                        }
+                      } catch (e) {
+                        // 跨域限制，无法拦截
+                      }
+                    }}
                     onError={() => { setIframeLoading(false); setIframeLoadError(true); }}
                   />
                 ) : (
@@ -1092,6 +1154,44 @@ function KnowledgeBase() {
               <button className="kb-btn kb-btn-primary" onClick={handleBatchAction} style={batchAction === 'delete' ? {background: '#ff4d4f', borderColor: '#ff4d4f'} : {}}>
                 {batchAction === 'delete' ? '确认删除' : '确认'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== 详情模态框 ========== */}
+      {detailItem && (
+        <div className="kb-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setDetailItem(null); }}>
+          <div className="kb-modal" onClick={(e) => e.stopPropagation()} style={{maxWidth: '700px'}}>
+            <div className="kb-modal-header">
+              <h3>{detailItem.title}</h3>
+              <button className="kb-modal-close" onClick={() => setDetailItem(null)}>×</button>
+            </div>
+            <div className="kb-modal-body" style={{maxHeight: '60vh', overflowY: 'auto'}}>
+              {detailItem.category && (
+                <div style={{marginBottom: '12px'}}>
+                  <span style={{display: 'inline-block', background: '#e6f7ff', color: '#1890ff', padding: '2px 8px', borderRadius: '4px', fontSize: '12px'}}>
+                    {detailItem.category}
+                  </span>
+                </div>
+              )}
+              <div style={{whiteSpace: 'pre-wrap', lineHeight: '1.8', fontSize: '14px', color: '#333'}}>
+                {detailItem.content}
+              </div>
+              {detailItem.tags && (
+                <div style={{marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #f0f0f0'}}>
+                  {detailItem.tags.split(',').filter(t => t.trim()).map((tag, i) => (
+                    <span key={i} className="kb-tag" style={{marginRight: '4px'}}>{tag.trim()}</span>
+                  ))}
+                </div>
+              )}
+              <div style={{marginTop: '12px', fontSize: '12px', color: '#999'}}>
+                创建时间：{formatDate(detailItem.created_at || detailItem.createdAt)}
+              </div>
+            </div>
+            <div className="kb-modal-footer">
+              <button className="kb-btn kb-btn-default" onClick={() => setDetailItem(null)}>关闭</button>
+              <button className="kb-btn kb-btn-primary" onClick={(e) => { setDetailItem(null); openEditModal(detailItem); }}>编辑</button>
             </div>
           </div>
         </div>

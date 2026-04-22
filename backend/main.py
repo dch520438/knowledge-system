@@ -212,44 +212,7 @@ def export_knowledge(
         raise HTTPException(status_code=400, detail=f"不支持的导出格式: {format}，请使用 json / docx / csv")
 
 
-@app.get("/api/knowledge/{item_id}", response_model=KnowledgeItemResponse, summary="获取单个知识条目")
-def get_knowledge_item(item_id: int, db: Session = Depends(get_db)):
-    """根据ID获取单个知识条目"""
-    db_item = db.query(KnowledgeItem).filter(KnowledgeItem.id == item_id).first()
-    if db_item is None:
-        raise HTTPException(status_code=404, detail="知识条目不存在")
-    return db_item
-
-
-@app.put("/api/knowledge/{item_id}", response_model=KnowledgeItemResponse, summary="更新知识条目")
-def update_knowledge_item(item_id: int, item: KnowledgeItemUpdate, db: Session = Depends(get_db)):
-    """
-    更新指定ID的知识条目
-    只更新请求中提供的字段，未提供的字段保持不变
-    """
-    db_item = db.query(KnowledgeItem).filter(KnowledgeItem.id == item_id).first()
-    if db_item is None:
-        raise HTTPException(status_code=404, detail="知识条目不存在")
-
-    update_data = item.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_item, key, value)
-
-    db.commit()
-    db.refresh(db_item)
-    return db_item
-
-
-@app.delete("/api/knowledge/{item_id}", summary="删除知识条目")
-def delete_knowledge_item(item_id: int, db: Session = Depends(get_db)):
-    """删除指定ID的知识条目"""
-    db_item = db.query(KnowledgeItem).filter(KnowledgeItem.id == item_id).first()
-    if db_item is None:
-        raise HTTPException(status_code=404, detail="知识条目不存在")
-    db.delete(db_item)
-    db.commit()
-    return {"message": "知识条目已删除", "id": item_id}
-
+# ==================== 批量操作路由（必须在 {item_id} 路由之前） ====================
 
 @app.post("/api/knowledge/batch-delete", summary="批量删除知识")
 def batch_delete_knowledge(
@@ -325,6 +288,45 @@ def batch_update_tags(
     
     db.commit()
     return {"message": f"已更新 {count} 条知识的标签", "count": count}
+
+
+@app.get("/api/knowledge/{item_id}", response_model=KnowledgeItemResponse, summary="获取单个知识条目")
+def get_knowledge_item(item_id: int, db: Session = Depends(get_db)):
+    """根据ID获取单个知识条目"""
+    db_item = db.query(KnowledgeItem).filter(KnowledgeItem.id == item_id).first()
+    if db_item is None:
+        raise HTTPException(status_code=404, detail="知识条目不存在")
+    return db_item
+
+
+@app.put("/api/knowledge/{item_id}", response_model=KnowledgeItemResponse, summary="更新知识条目")
+def update_knowledge_item(item_id: int, item: KnowledgeItemUpdate, db: Session = Depends(get_db)):
+    """
+    更新指定ID的知识条目
+    只更新请求中提供的字段，未提供的字段保持不变
+    """
+    db_item = db.query(KnowledgeItem).filter(KnowledgeItem.id == item_id).first()
+    if db_item is None:
+        raise HTTPException(status_code=404, detail="知识条目不存在")
+
+    update_data = item.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_item, key, value)
+
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+
+@app.delete("/api/knowledge/{item_id}", summary="删除知识条目")
+def delete_knowledge_item(item_id: int, db: Session = Depends(get_db)):
+    """删除指定ID的知识条目"""
+    db_item = db.query(KnowledgeItem).filter(KnowledgeItem.id == item_id).first()
+    if db_item is None:
+        raise HTTPException(status_code=404, detail="知识条目不存在")
+    db.delete(db_item)
+    db.commit()
+    return {"message": "知识条目已删除", "id": item_id}
 
 
 @app.post("/api/knowledge/deduplicate", summary="知识库排重")
