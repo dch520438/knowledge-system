@@ -693,7 +693,7 @@ function KnowledgeBase() {
               </div>
               <p className="kb-card-summary">
                 {(item.content || '').substring(0, 100)}
-                {(item.content || '').length > 100 ? '...' : ''
+                {(item.content || '').length > 100 ? '...' : ''}
               </p>
               {item.tags && (
                 <div className="kb-card-tags">
