@@ -1,3 +1,5 @@
+/* 写作助手 - Office 2010 Word 风格 */
+
 .writing {
   height: calc(100vh - 64px - 48px);
   margin: -24px;
@@ -5,7 +7,101 @@
 
 .writing-container {
   display: flex;
+  flex-direction: column;
   height: 100%;
+  background: #f0f0f0;
+  font-family: 'Microsoft YaHei', 'SimSun', 'Segoe UI', Tahoma, sans-serif;
+}
+
+/* 顶部标题栏 */
+.writing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: linear-gradient(180deg, #4b8cc8 0%, #3670a8 100%);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.writing-header .writing-title {
+  font-size: 15px;
+  font-weight: normal;
+  color: #fff;
+}
+
+/* 工具栏区域 */
+.writing-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 8px;
+  background: #f6f6f6;
+  border-bottom: 1px solid #d0d0d0;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.writing-toolbar .w-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #333;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.4;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.writing-toolbar .w-btn:hover {
+  background: #cde4f7;
+  border-color: #8cb4d8;
+}
+
+.writing-toolbar .w-btn:active,
+.writing-toolbar .w-btn.active {
+  background: #aed4f0;
+  border-color: #6a9fd8;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.15);
+}
+
+.writing-toolbar .w-btn-sm {
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+.writing-toolbar .w-btn-primary {
+  background: #0070c0;
+  color: #fff;
+  border-color: #005a9e;
+}
+
+.writing-toolbar .w-btn-primary:hover {
+  background: #005a9e;
+  border-color: #004080;
+}
+
+.writing-toolbar .w-btn-default {
+  background: #fff;
+  border: 1px solid #b0b0b0;
+  color: #333;
+}
+
+.writing-toolbar .w-btn-default:hover {
+  background: #e8f0fe;
+  border-color: #0070c0;
+}
+
+/* 工具栏分隔线 */
+.writing-toolbar .toolbar-separator {
+  width: 1px;
+  height: 22px;
+  background: #d0d0d0;
+  margin: 0 4px;
+  flex-shrink: 0;
 }
 
 /* 左侧文档列表 */
@@ -13,24 +109,26 @@
   width: 30%;
   min-width: 260px;
   max-width: 400px;
-  background-color: #fafafa;
-  border-right: 1px solid #e8e8e8;
+  background: #e8e8e8;
+  border-right: 1px solid #c0c0c0;
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
 }
 
 .writing-sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
-  border-bottom: 1px solid #e8e8e8;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, #4b8cc8 0%, #3670a8 100%);
+  border-bottom: 1px solid #2d5f8a;
 }
 
 .writing-sidebar-header h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
+  font-size: 14px;
+  font-weight: normal;
+  color: #fff;
   margin: 0;
 }
 
@@ -48,27 +146,31 @@
 }
 
 .writing-doc-item {
-  padding: 12px 16px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 8px 12px;
+  border-bottom: 1px solid #d0d0d0;
   cursor: pointer;
   transition: background-color 0.2s;
   position: relative;
+  font-size: 13px;
+  color: #333;
 }
 
 .writing-doc-item:hover {
-  background-color: #e6f7ff;
+  background: #dce9f5;
 }
 
 .writing-doc-item.active {
-  background-color: #e6f7ff;
-  border-left: 3px solid #1890ff;
+  background: #cde4f7;
+  border-left: 3px solid #0070c0;
+  color: #003366;
+  font-weight: 500;
 }
 
 .writing-doc-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: #333;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   padding-right: 20px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -90,12 +192,12 @@
 
 .status-draft {
   background-color: #fff7e6;
-  color: #faad14;
+  color: #d48806;
 }
 
 .status-published {
   background-color: #f6ffed;
-  color: #52c41a;
+  color: #389e0d;
 }
 
 .writing-doc-time {
@@ -104,7 +206,7 @@
 
 .writing-doc-delete {
   position: absolute;
-  top: 12px;
+  top: 8px;
   right: 8px;
   background: none;
   color: #999;
@@ -144,9 +246,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 24px;
-  border-bottom: 1px solid #e8e8e8;
-  gap: 12px;
+  padding: 6px 12px;
+  background: #f6f6f6;
+  border-bottom: 1px solid #d0d0d0;
+  gap: 8px;
   flex-shrink: 0;
   flex-wrap: wrap;
 }
@@ -154,12 +257,19 @@
 .writing-title-input {
   flex: 1;
   min-width: 200px;
-  font-size: 20px;
-  font-weight: 600;
-  border: none;
+  font-size: 16px;
+  font-weight: 500;
+  border: 1px solid transparent;
   color: #333;
   background: transparent;
   outline: none;
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+
+.writing-title-input:focus {
+  border-color: #0070c0;
+  background: #fff;
 }
 
 .writing-title-input::placeholder {
@@ -168,7 +278,7 @@
 
 .writing-editor-actions {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   flex-shrink: 0;
   flex-wrap: wrap;
 }
@@ -185,10 +295,105 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: #fff;
+  border: 1px solid #d0d0d0;
+  margin: 0;
   min-width: 0;
 }
 
-/* Quill 编辑器 */
+/* Quill 编辑器样式 */
+.writing-editor-main .ql-toolbar.ql-snow {
+  border: none !important;
+  border-bottom: 1px solid #d0d0d0 !important;
+  background: #f6f6f6 !important;
+  padding: 4px 8px !important;
+}
+
+.writing-editor-main .ql-toolbar.ql-snow .ql-formats {
+  margin-right: 8px;
+}
+
+.writing-editor-main .ql-toolbar.ql-snow button {
+  border: 1px solid transparent !important;
+  border-radius: 3px !important;
+  width: 28px !important;
+  height: 28px !important;
+  padding: 2px !important;
+}
+
+.writing-editor-main .ql-toolbar.ql-snow button:hover {
+  background: #cde4f7 !important;
+  border-color: #8cb4d8 !important;
+}
+
+.writing-editor-main .ql-toolbar.ql-snow button.ql-active {
+  background: #aed4f0 !important;
+  border-color: #6a9fd8 !important;
+}
+
+.writing-editor-main .ql-toolbar.ql-snow .ql-stroke {
+  stroke: #333 !important;
+}
+
+.writing-editor-main .ql-toolbar.ql-snow .ql-fill {
+  fill: #333 !important;
+}
+
+.writing-editor-main .ql-toolbar.ql-snow .ql-picker-label {
+  border: 1px solid transparent !important;
+  border-radius: 3px !important;
+  padding: 2px 4px !important;
+}
+
+.writing-editor-main .ql-toolbar.ql-snow .ql-picker-label:hover {
+  background: #cde4f7 !important;
+}
+
+.writing-editor-main .ql-toolbar.ql-snow .ql-picker-options {
+  border: 1px solid #b0b0b0 !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+  margin-top: 2px !important;
+}
+
+.writing-editor-main .ql-container.ql-snow {
+  border: none !important;
+  font-family: 'SimSun', 'Microsoft YaHei', serif !important;
+  font-size: 14px !important;
+  line-height: 1.8 !important;
+  padding: 20px 40px !important;
+  color: #000 !important;
+}
+
+.writing-editor-main .ql-container.ql-snow .ql-editor {
+  min-height: 100%;
+}
+
+.writing-editor-main .ql-container.ql-snow .ql-editor p,
+.writing-editor-main .ql-container.ql-snow .ql-editor li,
+.writing-editor-main .ql-container.ql-snow .ql-editor div {
+  line-height: 1.8 !important;
+}
+
+.writing-editor-main .ql-container.ql-snow .ql-editor h1 {
+  font-size: 24px !important;
+  font-weight: bold !important;
+  color: #000 !important;
+}
+
+.writing-editor-main .ql-container.ql-snow .ql-editor h2 {
+  font-size: 20px !important;
+  font-weight: bold !important;
+  color: #000 !important;
+}
+
+.writing-editor-main .ql-container.ql-snow .ql-editor h3 {
+  font-size: 16px !important;
+  font-weight: bold !important;
+  color: #000 !important;
+}
+
+/* Quill wrapper */
 .writing-quill-wrapper {
   flex: 1;
   overflow: hidden;
@@ -202,52 +407,49 @@
   height: 100%;
 }
 
-.writing-quill-wrapper .ql-toolbar {
-  border: none !important;
-  border-bottom: 1px solid #e8e8e8 !important;
-  flex-shrink: 0;
-  background: #fafafa;
-}
-
-.writing-quill-wrapper .ql-container {
-  flex: 1;
-  overflow-y: auto;
-  border: none !important;
-  font-size: 15px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-}
-
-.writing-quill-wrapper .ql-editor {
-  padding: 24px;
-  min-height: 100%;
-  line-height: 1.8;
-  color: #333;
-}
-
 .writing-quill-wrapper .ql-editor.ql-blank::before {
   color: #bfbfbf;
   font-style: normal;
 }
 
-/* 字数统计 */
+/* 状态栏 */
+.writing-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 4px 12px;
+  background: #0070c0;
+  color: #fff;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.writing-status-bar span {
+  opacity: 0.9;
+}
+
+/* 字数统计 - 使用状态栏风格 */
 .writing-word-stats {
   display: flex;
-  gap: 20px;
-  padding: 8px 24px;
-  border-top: 1px solid #f0f0f0;
-  background: #fafafa;
+  gap: 16px;
+  padding: 4px 12px;
+  background: #0070c0;
+  color: #fff;
   font-size: 12px;
-  color: #999;
   flex-shrink: 0;
+}
+
+.writing-word-stats span {
+  opacity: 0.9;
 }
 
 /* 搜索知识库面板 */
 .writing-kb-panel {
   width: 320px;
-  border-left: 1px solid #e8e8e8;
+  border-left: 1px solid #d0d0d0;
   display: flex;
   flex-direction: column;
-  background: #fafafa;
+  background: #f6f6f6;
   flex-shrink: 0;
   overflow: hidden;
 }
@@ -256,22 +458,24 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid #e8e8e8;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, #4b8cc8 0%, #3670a8 100%);
+  border-bottom: 1px solid #2d5f8a;
 }
 
 .writing-kb-panel-header h4 {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
+  font-size: 13px;
+  font-weight: normal;
+  color: #fff;
   margin: 0;
 }
 
 .writing-kb-panel-search {
   display: flex;
-  gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid #f0f0f0;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #d0d0d0;
+  background: #e8f0fe;
 }
 
 .writing-kb-panel-results {
@@ -288,16 +492,16 @@
 }
 
 .writing-kb-panel-item {
-  padding: 10px 12px;
-  border: 1px solid #f0f0f0;
-  border-radius: 6px;
-  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid #d0d0d0;
+  border-radius: 3px;
+  margin-bottom: 6px;
   background: #fff;
   transition: border-color 0.2s;
 }
 
 .writing-kb-panel-item:hover {
-  border-color: #91d5ff;
+  border-color: #0070c0;
 }
 
 .writing-kb-panel-item-header {
@@ -305,7 +509,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .writing-kb-panel-item-title {
@@ -333,7 +537,7 @@
 .writing-kb-panel-item-detail {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid #d0d0d0;
   font-size: 13px;
   color: #555;
   line-height: 1.6;
@@ -343,38 +547,39 @@
 
 /* 引用知识 */
 .writing-references {
-  padding: 12px 24px;
-  border-top: 1px solid #e8e8e8;
-  background: #fafafa;
+  padding: 8px 12px;
+  border-top: 1px solid #d0d0d0;
+  background: #f6f6f6;
   flex-shrink: 0;
 }
 
 .writing-references h4 {
-  font-size: 13px;
-  color: #666;
-  margin: 0 0 8px 0;
+  font-size: 12px;
+  color: #333;
+  margin: 0 0 6px 0;
 }
 
 .writing-ref-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .writing-ref-tag {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background-color: #e6f7ff;
-  color: #1890ff;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 13px;
+  background-color: #dce9f5;
+  color: #003366;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  border: 1px solid #8cb4d8;
 }
 
 .writing-ref-remove {
   background: none;
-  color: #1890ff;
+  color: #003366;
   font-size: 12px;
   width: 16px;
   height: 16px;
@@ -387,8 +592,8 @@
 }
 
 .writing-ref-remove:hover {
-  background-color: #bae7ff;
-  color: #0050b3;
+  background-color: #aed4f0;
+  color: #003366;
 }
 
 /* 无选择状态 */
@@ -412,72 +617,91 @@
 
 /* 按钮 */
 .w-btn {
-  height: 32px;
-  padding: 0 14px;
-  border-radius: 4px;
-  font-size: 13px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 3px;
+  font-size: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s;
+  transition: all 0.2s;
   white-space: nowrap;
   cursor: pointer;
-  border: none;
+  border: 1px solid #b0b0b0;
+  background: #fff;
+  color: #333;
+}
+
+.w-btn:hover {
+  background: #e8f0fe;
+  border-color: #0070c0;
+}
+
+.w-btn:active {
+  background: #cde4f7;
+  border-color: #6a9fd8;
 }
 
 .w-btn-primary {
-  background-color: #1890ff;
-  color: #fff;
+  background: #0070c0 !important;
+  color: #fff !important;
+  border-color: #005a9e !important;
 }
 
 .w-btn-primary:hover {
-  background-color: #40a9ff;
+  background: #005a9e !important;
+  border-color: #004080 !important;
 }
 
 .w-btn-default {
   background-color: #fff;
   color: #333;
-  border: 1px solid #d9d9d9;
+  border: 1px solid #b0b0b0;
 }
 
 .w-btn-default:hover {
-  border-color: #1890ff;
-  color: #1890ff;
+  background: #e8f0fe;
+  border-color: #0070c0;
 }
 
 .w-btn-success {
-  background-color: #52c41a;
+  background-color: #389e0d;
   color: #fff;
+  border-color: #237804;
 }
 
 .w-btn-success:hover {
-  background-color: #73d13d;
+  background-color: #237804;
 }
 
 .w-btn-warning {
-  background-color: #faad14;
+  background-color: #d48806;
   color: #fff;
+  border-color: #ad6800;
 }
 
 .w-btn-warning:hover {
-  background-color: #ffc53d;
+  background-color: #ad6800;
 }
 
 .w-btn-sm {
-  height: 26px;
-  padding: 0 8px;
+  height: 24px;
+  padding: 0 6px;
   font-size: 12px;
 }
 
 .w-btn-link {
   background: none;
-  color: #1890ff;
+  color: #0070c0;
   padding: 0 6px;
   height: auto;
+  border: none;
 }
 
 .w-btn-link:hover {
-  color: #40a9ff;
+  color: #005a9e;
+  background: none;
+  border: none;
 }
 
 .w-btn:disabled {
@@ -494,10 +718,10 @@
   position: absolute;
   top: 100%;
   right: 0;
-  margin-top: 4px;
+  margin-top: 2px;
   background: #fff;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
+  border: 1px solid #b0b0b0;
+  border-radius: 3px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   z-index: 100;
   min-width: 120px;
@@ -507,7 +731,7 @@
 .w-export-dropdown button {
   display: block;
   width: 100%;
-  padding: 8px 16px;
+  padding: 6px 12px;
   text-align: left;
   background: none;
   border: none;
@@ -518,8 +742,8 @@
 }
 
 .w-export-dropdown button:hover {
-  background-color: #e6f7ff;
-  color: #1890ff;
+  background-color: #cde4f7;
+  color: #003366;
 }
 
 /* 模态框 */
@@ -529,7 +753,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -538,52 +762,56 @@
 
 .w-modal {
   background: #fff;
-  border-radius: 8px;
+  border: 1px solid #b0b0b0;
+  border-radius: 4px;
   width: 640px;
   max-width: 90vw;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
 .w-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 8px 16px;
+  background: linear-gradient(180deg, #4b8cc8 0%, #3670a8 100%);
+  color: #fff;
+  border-radius: 4px 4px 0 0;
   flex-shrink: 0;
 }
 
 .w-modal-header h2 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
+  font-size: 14px;
+  font-weight: normal;
+  color: #fff;
   margin: 0;
 }
 
 .w-modal-close {
   background: none;
   font-size: 18px;
-  color: #999;
-  width: 32px;
-  height: 32px;
+  color: #fff;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
   border: none;
+  opacity: 0.8;
 }
 
 .w-modal-close:hover {
-  background-color: #f5f5f5;
-  color: #333;
+  opacity: 1;
+  background: rgba(255,255,255,0.2);
 }
 
 .w-modal-body {
-  padding: 16px 24px;
+  padding: 16px;
   overflow-y: auto;
   flex: 1;
 }
@@ -592,8 +820,9 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 12px 24px;
-  border-top: 1px solid #f0f0f0;
+  padding: 8px 16px;
+  border-top: 1px solid #d0d0d0;
+  background: #f6f6f6;
   flex-shrink: 0;
 }
 
@@ -605,45 +834,45 @@
 
 .w-search-input {
   flex: 1;
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid #b0b0b0;
+  border-radius: 3px;
   font-size: 13px;
   box-sizing: border-box;
 }
 
 .w-search-input:focus {
-  border-color: #1890ff;
-  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  border-color: #0070c0;
+  box-shadow: 0 0 0 1px #0070c0;
   outline: none;
 }
 
 .w-knowledge-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .w-knowledge-item {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid #f0f0f0;
-  border-radius: 6px;
+  padding: 8px 10px;
+  border: 1px solid #d0d0d0;
+  border-radius: 3px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .w-knowledge-item:hover {
-  border-color: #1890ff;
-  background-color: #e6f7ff;
+  border-color: #0070c0;
+  background-color: #e8f0fe;
 }
 
 .w-knowledge-item.selected {
-  border-color: #1890ff;
-  background-color: #e6f7ff;
+  border-color: #0070c0;
+  background-color: #cde4f7;
 }
 
 .w-knowledge-check {
@@ -658,7 +887,7 @@
 }
 
 .w-knowledge-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: #333;
   margin-bottom: 4px;
@@ -668,6 +897,22 @@
   font-size: 12px;
   color: #999;
   line-height: 1.4;
+}
+
+/* 选区统计 */
+.writing-selection-stats {
+  color: #0070c0;
+  font-size: 12px;
+}
+
+/* 搜索栏 */
+.writing-search-bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #e8f0fe;
+  border-bottom: 1px solid #b8d4f0;
+  flex-shrink: 0;
 }
 
 /* 响应式 */
@@ -681,7 +926,7 @@
     max-width: none;
     max-height: 200px;
     border-right: none;
-    border-bottom: 1px solid #e8e8e8;
+    border-bottom: 1px solid #c0c0c0;
   }
 
   .writing-editor-header {
@@ -693,7 +938,7 @@
     width: 100%;
     max-height: 250px;
     border-left: none;
-    border-top: 1px solid #e8e8e8;
+    border-top: 1px solid #d0d0d0;
   }
 
   .writing-editor-body {

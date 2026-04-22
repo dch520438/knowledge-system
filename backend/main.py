@@ -251,6 +251,82 @@ def delete_knowledge_item(item_id: int, db: Session = Depends(get_db)):
     return {"message": "知识条目已删除", "id": item_id}
 
 
+@app.post("/api/knowledge/batch-delete", summary="批量删除知识")
+def batch_delete_knowledge(
+    data: dict,
+    db: Session = Depends(get_db),
+):
+    """批量删除知识条目
+    - **ids**: 要删除的知识条目ID列表
+    """
+    ids = data.get("ids", [])
+    if not ids:
+        raise HTTPException(status_code=400, detail="请提供要删除的ID列表")
+    count = db.query(KnowledgeItem).filter(KnowledgeItem.id.in_(ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"message": f"已删除 {count} 条知识", "count": count}
+
+
+@app.put("/api/knowledge/batch-category", summary="批量更改分类")
+def batch_update_category(
+    data: dict,
+    db: Session = Depends(get_db),
+):
+    """批量更改知识条目的分类
+    - **ids**: 知识条目ID列表
+    - **category**: 新的分类名称
+    """
+    ids = data.get("ids", [])
+    category = data.get("category", "")
+    if not ids:
+        raise HTTPException(status_code=400, detail="请提供ID列表")
+    if not category:
+        raise HTTPException(status_code=400, detail="请提供新分类")
+    count = db.query(KnowledgeItem).filter(KnowledgeItem.id.in_(ids)).update(
+        {"category": category}, synchronize_session=False
+    )
+    db.commit()
+    return {"message": f"已更新 {count} 条知识的分类", "count": count}
+
+
+@app.put("/api/knowledge/batch-tags", summary="批量更改标签")
+def batch_update_tags(
+    data: dict,
+    db: Session = Depends(get_db),
+):
+    """批量更改知识条目的标签
+    - **ids**: 知识条目ID列表
+    - **tags**: 新的标签（逗号分隔）
+    - **mode**: 更新模式，"replace"替换/"append"追加/"remove"移除，默认"replace"
+    """
+    ids = data.get("ids", [])
+    tags = data.get("tags", "")
+    mode = data.get("mode", "replace")
+    if not ids:
+        raise HTTPException(status_code=400, detail="请提供ID列表")
+    
+    items = db.query(KnowledgeItem).filter(KnowledgeItem.id.in_(ids)).all()
+    count = 0
+    for item in items:
+        existing_tags = [t.strip() for t in item.tags.split(",") if t.strip()] if item.tags else []
+        new_tags = [t.strip() for t in tags.split(",") if t.strip()]
+        
+        if mode == "replace":
+            final_tags = new_tags
+        elif mode == "append":
+            final_tags = list(set(existing_tags + new_tags))
+        elif mode == "remove":
+            final_tags = [t for t in existing_tags if t not in new_tags]
+        else:
+            final_tags = new_tags
+        
+        item.tags = ",".join(final_tags)
+        count += 1
+    
+    db.commit()
+    return {"message": f"已更新 {count} 条知识的标签", "count": count}
+
+
 @app.post("/api/knowledge/deduplicate", summary="知识库排重")
 def deduplicate_knowledge(db: Session = Depends(get_db)):
     """

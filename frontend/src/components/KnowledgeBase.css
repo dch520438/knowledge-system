@@ -122,10 +122,28 @@
 }
 
 .kb-btn-danger {
-  color: #ff4d4f;
+  background: #ff4d4f;
+  color: #fff;
+  border: 1px solid #ff4d4f;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
 }
 
 .kb-btn-danger:hover {
+  background: #ff7875;
+}
+
+.kb-btn-link.kb-btn-danger {
+  background: none;
+  border: none;
+  padding: 0 8px;
+  height: auto;
+  color: #ff4d4f;
+}
+
+.kb-btn-link.kb-btn-danger:hover {
   color: #ff7875;
 }
 

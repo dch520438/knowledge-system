@@ -26,6 +26,13 @@ function KnowledgeBase() {
   const [selectedCategory, setSelectedCategory] = useState('')
   const [modalVisible, setModalVisible] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
+  const [selectedIds, setSelectedIds] = useState([])
+  const [batchMode, setBatchMode] = useState(false)
+  const [batchCategory, setBatchCategory] = useState('')
+  const [batchTags, setBatchTags] = useState('')
+  const [batchTagMode, setBatchTagMode] = useState('replace')
+  const [showBatchModal, setShowBatchModal] = useState(false)
+  const [batchAction, setBatchAction] = useState('') // 'delete' | 'category' | 'tags'
   const [formTitle, setFormTitle] = useState('')
   const [formContent, setFormContent] = useState('')
   const [formCategory, setFormCategory] = useState('')
@@ -441,6 +448,47 @@ function KnowledgeBase() {
     }
   }
 
+  // ========== 批量管理 ==========
+  // 全选/取消全选
+  const toggleSelectAll = () => {
+    if (selectedIds.length === knowledgeList.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(knowledgeList.map(item => item.id))
+    }
+  }
+
+  // 切换单个选择
+  const toggleSelect = (id) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  // 执行批量操作
+  const handleBatchAction = async () => {
+    if (selectedIds.length === 0) return
+    try {
+      if (batchAction === 'delete') {
+        if (!confirm(`确定要删除选中的 ${selectedIds.length} 条知识吗？`)) return
+        await knowledgeAPI.batchDelete(selectedIds)
+      } else if (batchAction === 'category') {
+        if (!batchCategory.trim()) { alert('请输入新分类'); return }
+        await knowledgeAPI.batchCategory(selectedIds, batchCategory.trim())
+      } else if (batchAction === 'tags') {
+        if (!batchTags.trim()) { alert('请输入标签'); return }
+        await knowledgeAPI.batchTags(selectedIds, batchTags.trim(), batchTagMode)
+      }
+      setShowBatchModal(false)
+      setSelectedIds([])
+      setBatchMode(false)
+      fetchKnowledge()
+      fetchCategories()
+    } catch (err) {
+      alert('批量操作失败: ' + err.message)
+    }
+  }
+
   const formatDate = (dateStr) => {
     if (!dateStr) return ''
     const d = new Date(dateStr)
@@ -489,6 +537,31 @@ function KnowledgeBase() {
       </div>
 
       <div className="kb-toolbar-actions">
+        <button
+          className="kb-btn kb-btn-default"
+          onClick={() => { setBatchMode(!batchMode); setSelectedIds([]); }}
+          style={{marginRight: '8px'}}
+        >
+          {batchMode ? '退出批量' : '批量管理'}
+        </button>
+        {batchMode && selectedIds.length > 0 && (
+          <span style={{marginRight: '8px', color: '#1890ff', fontSize: '13px'}}>
+            已选 {selectedIds.length} 项
+          </span>
+        )}
+        {batchMode && selectedIds.length > 0 && (
+          <>
+            <button className="kb-btn kb-btn-danger" onClick={() => { setBatchAction('delete'); setShowBatchModal(true); }} style={{marginRight: '4px'}}>
+              批量删除
+            </button>
+            <button className="kb-btn kb-btn-default" onClick={() => { setBatchAction('category'); setShowBatchModal(true); }} style={{marginRight: '4px'}}>
+              改分类
+            </button>
+            <button className="kb-btn kb-btn-default" onClick={() => { setBatchAction('tags'); setShowBatchModal(true); }}>
+              改标签
+            </button>
+          </>
+        )}
         <button className="kb-btn kb-btn-primary" onClick={openCreateModal}>
           + 新建知识
         </button>
@@ -535,8 +608,27 @@ function KnowledgeBase() {
         <div className="kb-empty">暂无知识条目</div>
       ) : (
         <div className="kb-grid">
+          {batchMode && (
+            <div style={{gridColumn: '1 / -1', marginBottom: '8px'}}>
+              <input
+                type="checkbox"
+                checked={selectedIds.length === knowledgeList.length && knowledgeList.length > 0}
+                onChange={toggleSelectAll}
+                style={{marginRight: '8px', cursor: 'pointer'}}
+              />
+              <span style={{fontSize: '13px', color: '#666'}}>全选</span>
+            </div>
+          )}
           {knowledgeList.map((item) => (
             <div className="kb-card" key={item.id}>
+              {batchMode && (
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(item.id)}
+                  onChange={() => toggleSelect(item.id)}
+                  style={{marginRight: '8px', cursor: 'pointer'}}
+                />
+              )}
               <div className="kb-card-header">
                 <h3 className="kb-card-title">{item.title}</h3>
                 {item.category && (
@@ -941,6 +1033,60 @@ function KnowledgeBase() {
                 disabled={!selectedWriting}
               >
                 保存为知识
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== 批量操作模态框 ========== */}
+      {showBatchModal && (
+        <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000}}>
+          <div style={{background: '#fff', borderRadius: '8px', padding: '24px', width: '420px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)'}}>
+            <h3 style={{margin: '0 0 16px 0', fontSize: '16px'}}>
+              {batchAction === 'delete' ? '批量删除' : batchAction === 'category' ? '批量更改分类' : '批量更改标签'}
+              <span style={{fontSize: '13px', color: '#999', fontWeight: 'normal', marginLeft: '8px'}}>(已选 {selectedIds.length} 项)</span>
+            </h3>
+
+            {batchAction === 'delete' && (
+              <p style={{color: '#ff4d4f', marginBottom: '16px'}}>确定要删除选中的 {selectedIds.length} 条知识吗？此操作不可撤销。</p>
+            )}
+
+            {batchAction === 'category' && (
+              <div style={{marginBottom: '16px'}}>
+                <label style={{display: 'block', marginBottom: '8px', fontSize: '13px', color: '#666'}}>新分类</label>
+                <input
+                  type="text"
+                  value={batchCategory}
+                  onChange={(e) => setBatchCategory(e.target.value)}
+                  placeholder="输入新分类名称"
+                  style={{width: '100%', height: '32px', border: '1px solid #d9d9d9', borderRadius: '4px', padding: '0 8px', boxSizing: 'border-box'}}
+                />
+              </div>
+            )}
+
+            {batchAction === 'tags' && (
+              <div style={{marginBottom: '16px'}}>
+                <label style={{display: 'block', marginBottom: '8px', fontSize: '13px', color: '#666'}}>标签（逗号分隔）</label>
+                <input
+                  type="text"
+                  value={batchTags}
+                  onChange={(e) => setBatchTags(e.target.value)}
+                  placeholder="标签1,标签2,标签3"
+                  style={{width: '100%', height: '32px', border: '1px solid #d9d9d9', borderRadius: '4px', padding: '0 8px', boxSizing: 'border-box', marginBottom: '8px'}}
+                />
+                <div style={{display: 'flex', gap: '12px', fontSize: '13px'}}>
+                  <label><input type="radio" name="tagMode" value="replace" checked={batchTagMode === 'replace'} onChange={(e) => setBatchTagMode(e.target.value)} /> 替换</label>
+                  <label><input type="radio" name="tagMode" value="append" checked={batchTagMode === 'append'} onChange={(e) => setBatchTagMode(e.target.value)} /> 追加</label>
+                  <label><input type="radio" name="tagMode" value="remove" checked={batchTagMode === 'remove'} onChange={(e) => setBatchTagMode(e.target.value)} /> 移除</label>
+                </div>
+              </div>
+            )}
+
+            <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px'}}>
+              <button className="kb-btn kb-btn-default" onClick={() => setShowBatchModal(false)}>取消</button>
+              <button className="kb-btn kb-btn-primary" onClick={handleBatchAction} style={batchAction === 'delete' ? {background: '#ff4d4f', borderColor: '#ff4d4f'} : {}}>
+                {batchAction === 'delete' ? '确认删除' : '确认'}
               </button>
             </div>
           </div>

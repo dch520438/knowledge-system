@@ -123,6 +123,10 @@ export const knowledgeAPI = {
       body: JSON.stringify(data),
     }),
 
+  batchDelete: (ids) => request('/api/knowledge/batch-delete', { method: 'POST', body: JSON.stringify({ ids }) }),
+  batchCategory: (ids, category) => request('/api/knowledge/batch-category', { method: 'PUT', body: JSON.stringify({ ids, category }) }),
+  batchTags: (ids, tags, mode = 'replace') => request('/api/knowledge/batch-tags', { method: 'PUT', body: JSON.stringify({ ids, tags, mode }) }),
+
   // 排重
   deduplicate: () => request('/api/knowledge/deduplicate', { method: 'POST' }),
 }

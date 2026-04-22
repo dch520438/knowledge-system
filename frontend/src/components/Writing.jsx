@@ -8,26 +8,38 @@ import './Writing.css'
 // Quill 编辑器配置
 const QUILL_MODULES = {
   toolbar: [
-    [{ header: [1, 2, 3, false] }],
-    ['bold', 'italic', 'underline'],
-    [{ list: 'ordered' }, { list: 'bullet' }],
-    [{ align: [] }],
+    [{ 'header': [1, 2, 3, false] }],
+    [{ 'font': [] }, { 'size': ['small', false, 'large', 'huge'] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ 'color': [] }, { 'background': [] }],
+    [{ 'script': 'sub' }, { 'script': 'super' }],
+    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+    [{ 'indent': '-1' }, { 'indent': '+1' }],
+    [{ 'align': [] }],
     ['blockquote', 'code-block'],
-    ['link'],
+    ['link', 'image'],
     ['clean'],
   ],
 }
 
 const QUILL_FORMATS = [
   'header',
+  'font',
+  'size',
   'bold',
   'italic',
   'underline',
+  'strike',
+  'color',
+  'background',
+  'script',
   'list',
+  'indent',
   'align',
   'blockquote',
   'code-block',
   'link',
+  'image',
 ]
 
 // 搜索引擎配置
