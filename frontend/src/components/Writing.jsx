@@ -47,6 +47,9 @@ const SEARCH_ENGINES = [
   { name: '百度', key: 'baidu', url: 'https://www.baidu.com/s?wd=' },
   { name: '必应', key: 'bing', url: 'https://www.bing.com/search?q=' },
   { name: '搜狗', key: 'sogou', url: 'https://www.sogou.com/web?query=' },
+  { name: '深言达意', key: 'shenyandayi', url: 'https://shenyandayi.com' },
+  { name: '汉典', key: 'zdic', url: 'http://www.zdic.net' },
+  { name: '写易', key: 'xieyi', url: 'https://www.xieyi.com' },
 ]
 
 const toProxyUrl = (url) => {
