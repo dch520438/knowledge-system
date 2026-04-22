@@ -1118,13 +1118,18 @@ function Writing() {
               )}
               <div style={{flex: 1, position: 'relative'}}>
                 {webSearchUrl ? (
-                  <iframe 
-                    key={webSearchIframeKey} 
-                    src={toProxyUrl(webSearchUrl)} 
-                    style={{width: '100%', height: '100%', border: 'none'}} 
-                    title="网络搜索" 
-                    sandbox="allow-same-origin allow-scripts allow-forms allow-top-navigation allow-modals"
-                  />
+                  <div style={{width: '100%', height: '100%', position: 'relative'}}>
+                    <iframe
+                      key={webSearchIframeKey}
+                      src={webSearchUrl}
+                      style={{width: '100%', height: '100%', border: 'none'}}
+                      title="网络搜索"
+                      sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-top-navigation-by-user-activation"
+                    />
+                    <div style={{position: 'absolute', bottom: '4px', right: '8px', zIndex: 5}}>
+                      <button className="w-btn w-btn-sm w-btn-default" onClick={() => window.open(webSearchUrl, '_blank')} style={{fontSize: '11px', opacity: 0.7}}>新窗口打开</button>
+                    </div>
+                  </div>
                 ) : (
                   <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999'}}>
                     请输入关键词进行搜索

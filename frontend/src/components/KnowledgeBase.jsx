@@ -841,18 +841,18 @@ function KnowledgeBase() {
                 {iframeLoadError && (
                   <div style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10, padding: '20px'}}>
                     <div style={{fontSize: '48px', marginBottom: '16px'}}>⚠️</div>
-                    <div style={{fontSize: '16px', color: '#333', marginBottom: '8px'}}>网页加载失败</div>
-                    <div style={{fontSize: '14px', color: '#666', marginBottom: '16px'}}>可能是网络问题或网站暂时不可用</div>
+                    <div style={{fontSize: '16px', color: '#333', marginBottom: '8px'}}>该网站不允许在框架中嵌入</div>
+                    <div style={{fontSize: '14px', color: '#666', marginBottom: '16px'}}>请点击下方按钮在新窗口中打开</div>
                     <button className="kb-btn kb-btn-primary" onClick={() => window.open(webUrl, '_blank')}>在新窗口打开</button>
                   </div>
                 )}
                 {webUrl ? (
                   <iframe
                     key={iframeKey}
-                    src={toProxyUrl(webUrl)}
+                    src={webUrl}
                     className="kb-web-iframe"
                     title="网页采集"
-                    sandbox="allow-same-origin allow-scripts allow-forms allow-top-navigation allow-modals"
+                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-top-navigation-by-user-activation"
                     onLoad={() => { setIframeLoading(false); }}
                     onError={() => { setIframeLoading(false); setIframeLoadError(true); }}
                   />
@@ -871,6 +871,7 @@ function KnowledgeBase() {
                 >
                   选取内容新建知识
                 </button>
+                <button className="kb-btn kb-btn-default" onClick={() => window.open(webUrl, '_blank')}>在新窗口打开</button>
                 <button className="kb-btn kb-btn-default" onClick={closeWebModal}>
                   关闭
                 </button>

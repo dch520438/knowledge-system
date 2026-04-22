@@ -908,8 +908,11 @@ def _runs_to_html(runs) -> str:
             text = f'<em>{text}</em>'
         if run.underline:
             text = f'<u>{text}</u>'
-        if run.strike:
-            text = f'<s>{text}</s>'
+        try:
+            if run.font.strike:
+                text = f'<s>{text}</s>'
+        except AttributeError:
+            pass
         
         parts.append(text)
     
@@ -999,7 +1002,7 @@ async def import_writing_document(
             raise HTTPException(status_code=400, detail=f"DOCX文件解析失败: {str(e)}")
 
     elif ext == "txt":
-        # TXT格式：读取内容
+        # TXT格式：读取内容，转为HTML
         try:
             text = content_bytes.decode("utf-8")
             lines = [line.strip() for line in text.split("\n") if line.strip()]
@@ -1007,7 +1010,9 @@ async def import_writing_document(
                 raise HTTPException(status_code=400, detail="TXT文件中没有有效内容")
             # 使用第一行作为标题，其余作为内容
             doc_title = lines[0][:255]
-            doc_content = "\n".join(lines)
+            # 将每行转为HTML段落
+            content_lines = [f'<p>{line}</p>' for line in lines[1:]] if len(lines) > 1 else ['<p></p>']
+            doc_content = "\n".join(content_lines)
         except HTTPException:
             raise
         except Exception as e:
