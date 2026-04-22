@@ -150,6 +150,17 @@ function Writing() {
   const [llmResult, setLlmResult] = useState('')
   const [llmResultVisible, setLlmResultVisible] = useState(false)
 
+  // AI写作（素材+提纲）
+  const [aiComposeVisible, setAiComposeVisible] = useState(false)
+  const [aiComposeOutline, setAiComposeOutline] = useState('')
+  const [aiComposeStyle, setAiComposeStyle] = useState('formal')
+  const [aiComposeLength, setAiComposeLength] = useState('medium')
+  const [aiComposeMaterials, setAiComposeMaterials] = useState([])
+  const [aiComposeLoading, setAiComposeLoading] = useState(false)
+  const [aiComposeResult, setAiComposeResult] = useState('')
+  const [knowledgeItems, setKnowledgeItems] = useState([])
+  const [knowledgeSearch, setKnowledgeSearch] = useState('')
+
   // 字数统计
   const wordStats = useMemo(() => {
     const text = formContent.replace(/<[^>]*>/g, '') // 去除 HTML 标签
@@ -713,6 +724,82 @@ function Writing() {
     setLlmResult('')
   }
 
+  // AI写作 - 获取知识库列表
+  const fetchKnowledgeForCompose = async () => {
+    try {
+      const { knowledgeAPI } = await import('../api')
+      let data
+      if (knowledgeSearch.trim()) {
+        data = await knowledgeAPI.search({ keyword: knowledgeSearch.trim() })
+      } else {
+        data = await knowledgeAPI.getAll()
+      }
+      setKnowledgeItems(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.error('获取知识库失败:', err)
+    }
+  }
+
+  // AI写作 - 切换素材选择
+  const toggleMaterial = (item) => {
+    setAiComposeMaterials(prev => {
+      if (prev.find(m => m.id === item.id)) {
+        return prev.filter(m => m.id !== item.id)
+      }
+      return [...prev, item]
+    })
+  }
+
+  // AI写作 - 执行写作
+  const handleAICompose = async () => {
+    if (!aiComposeOutline.trim()) {
+      alert('请输入写作提纲或要求')
+      return
+    }
+    setAiComposeLoading(true)
+    setAiComposeResult('')
+    try {
+      const result = await llmAPI.compose(
+        aiComposeMaterials.map(m => m.id),
+        aiComposeOutline,
+        aiComposeStyle,
+        aiComposeLength
+      )
+      setAiComposeResult(result.content)
+    } catch (err) {
+      if (err.message.includes('未配置')) {
+        alert('请先在设置中配置并激活大模型')
+      } else {
+        alert('AI写作失败: ' + err.message)
+      }
+    } finally {
+      setAiComposeLoading(false)
+    }
+  }
+
+  // AI写作 - 插入结果到编辑器
+  const insertComposeResult = () => {
+    if (!aiComposeResult || !quillRef.current) return
+    const editor = quillRef.current.getEditor()
+    const pos = editor.getSelection()?.index || editor.getLength()
+    editor.insertText(pos, aiComposeResult)
+    setAiComposeVisible(false)
+    setAiComposeResult('')
+    setAiComposeOutline('')
+    setAiComposeMaterials([])
+  }
+
+  // AI写作 - 替换编辑器内容
+  const replaceWithComposeResult = () => {
+    if (!aiComposeResult || !quillRef.current) return
+    const editor = quillRef.current.getEditor()
+    editor.setText(aiComposeResult)
+    setAiComposeVisible(false)
+    setAiComposeResult('')
+    setAiComposeOutline('')
+    setAiComposeMaterials([])
+  }
+
   const formatDate = (dateStr) => {
     if (!dateStr) return ''
     const d = new Date(dateStr)
@@ -822,6 +909,7 @@ function Writing() {
                   <button className="w-btn" onClick={() => handleLLMWriting('continue')} disabled={llmLoading} title="AI续写">✍️续写</button>
                   <button className="w-btn" onClick={() => handleLLMWriting('summarize')} disabled={llmLoading} title="AI总结">📝总结</button>
                   <button className="w-btn" onClick={() => handleLLMWriting('expand')} disabled={llmLoading} title="AI扩写">📐扩写</button>
+                  <button className="w-btn" onClick={() => { setAiComposeVisible(true); fetchKnowledgeForCompose(); }} title="AI写作（素材+提纲）">📋AI写作</button>
                   <button
                     className="w-btn w-btn-default"
                     onClick={handleImportDoc}
@@ -1258,6 +1346,93 @@ function Writing() {
               <button className="w-btn w-btn-default" onClick={() => setLlmResultVisible(false)}>取消</button>
               <button className="w-btn w-btn-default" onClick={insertLlmResult}>插入到文末</button>
               <button className="w-btn w-btn-primary" onClick={replaceWithLlmResult}>替换选中内容</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI写作弹窗（素材+提纲） */}
+      {aiComposeVisible && (
+        <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000}}>
+          <div style={{background: '#fff', borderRadius: '8px', width: '800px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 16px rgba(0,0,0,0.15)'}}>
+            {/* 标题栏 */}
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', background: 'linear-gradient(180deg, #4b8cc8, #3670a8)', color: '#fff', borderRadius: '8px 8px 0 0'}}>
+              <h3 style={{margin: 0, fontSize: '15px', fontWeight: 'normal'}}>📋 AI写作 - 素材+提纲</h3>
+              <button onClick={() => setAiComposeVisible(false)} style={{background: 'none', border: 'none', color: '#fff', fontSize: '18px', cursor: 'pointer'}}>×</button>
+            </div>
+            
+            <div style={{flex: 1, overflow: 'auto', padding: '16px 20px', display: 'flex', gap: '16px'}}>
+              {/* 左侧：素材选择 */}
+              <div style={{width: '280px', flexShrink: 0, display: 'flex', flexDirection: 'column'}}>
+                <div style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '8px'}}>📚 选择参考素材（{aiComposeMaterials.length}项）</div>
+                <input type="text" placeholder="搜索知识库..." value={knowledgeSearch} onChange={(e) => setKnowledgeSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchKnowledgeForCompose()} style={{width: '100%', height: '28px', border: '1px solid #d9d9d9', borderRadius: '4px', padding: '0 8px', fontSize: '12px', marginBottom: '8px', boxSizing: 'border-box'}} />
+                <div style={{flex: 1, overflowY: 'auto', border: '1px solid #e8e8e8', borderRadius: '4px', background: '#fafafa'}}>
+                  {knowledgeItems.length === 0 ? (
+                    <div style={{padding: '20px', textAlign: 'center', color: '#999', fontSize: '12px'}}>暂无知识素材</div>
+                  ) : (
+                    knowledgeItems.map(item => {
+                      const selected = aiComposeMaterials.find(m => m.id === item.id)
+                      return (
+                        <div key={item.id} onClick={() => toggleMaterial(item)} style={{padding: '8px 10px', borderBottom: '1px solid #f0f0f0', cursor: 'pointer', background: selected ? '#e6f7ff' : 'transparent', fontSize: '12px'}}>
+                          <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                            <input type="checkbox" checked={!!selected} readOnly style={{margin: 0}} />
+                            <span style={{fontWeight: selected ? 'bold' : 'normal', color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{item.title}</span>
+                          </div>
+                          {selected && (
+                            <div style={{marginTop: '4px', color: '#666', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{(item.content || '').substring(0, 60)}...</div>
+                          )}
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+              
+              {/* 右侧：提纲和结果 */}
+              <div style={{flex: 1, display: 'flex', flexDirection: 'column', gap: '12px'}}>
+                <div>
+                  <div style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '8px'}}>✏️ 写作提纲/要求</div>
+                  <textarea value={aiComposeOutline} onChange={(e) => setAiComposeOutline(e.target.value)} placeholder={"请输入写作提纲或要求，例如：\n1. 引言：介绍背景\n2. 主体：分析问题\n3. 结论：总结建议"} style={{width: '100%', height: '120px', border: '1px solid #d9d9d9', borderRadius: '4px', padding: '8px', fontSize: '13px', lineHeight: '1.6', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit'}} />
+                </div>
+                
+                <div style={{display: 'flex', gap: '12px'}}>
+                  <div style={{flex: 1}}>
+                    <label style={{display: 'block', marginBottom: '4px', fontSize: '12px', color: '#666'}}>写作风格</label>
+                    <select value={aiComposeStyle} onChange={(e) => setAiComposeStyle(e.target.value)} style={{width: '100%', height: '28px', border: '1px solid #d9d9d9', borderRadius: '4px', padding: '0 8px', fontSize: '12px'}}>
+                      <option value="formal">正式公文</option>
+                      <option value="casual">通俗易懂</option>
+                      <option value="academic">学术论文</option>
+                      <option value="news">新闻报道</option>
+                    </select>
+                  </div>
+                  <div style={{flex: 1}}>
+                    <label style={{display: 'block', marginBottom: '4px', fontSize: '12px', color: '#666'}}>篇幅</label>
+                    <select value={aiComposeLength} onChange={(e) => setAiComposeLength(e.target.value)} style={{width: '100%', height: '28px', border: '1px solid #d9d9d9', borderRadius: '4px', padding: '0 8px', fontSize: '12px'}}>
+                      <option value="short">短篇（500字）</option>
+                      <option value="medium">中篇（1000-1500字）</option>
+                      <option value="long">长篇（2000字+）</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <button className="w-btn w-btn-primary" onClick={handleAICompose} disabled={aiComposeLoading} style={{width: '100%'}}>
+                  {aiComposeLoading ? '🤖 AI正在写作中...' : '🤖 开始AI写作'}
+                </button>
+                
+                {aiComposeResult && (
+                  <div>
+                    <div style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '8px'}}>📄 写作结果</div>
+                    <div style={{border: '1px solid #e8e8e8', borderRadius: '4px', padding: '12px', background: '#fff', maxHeight: '250px', overflowY: 'auto', whiteSpace: 'pre-wrap', lineHeight: '1.8', fontSize: '13px'}}>
+                      {aiComposeResult}
+                    </div>
+                    <div style={{display: 'flex', gap: '8px', marginTop: '8px', justifyContent: 'flex-end'}}>
+                      <button className="w-btn w-btn-sm w-btn-default" onClick={() => setAiComposeResult('')}>清除</button>
+                      <button className="w-btn w-btn-sm w-btn-default" onClick={insertComposeResult}>插入到文末</button>
+                      <button className="w-btn w-btn-sm w-btn-primary" onClick={replaceWithComposeResult}>替换当前内容</button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

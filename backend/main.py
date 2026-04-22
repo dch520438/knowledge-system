@@ -1831,6 +1831,73 @@ async def llm_writing(request: LLMWritingRequest, db: Session = Depends(get_db))
     return {"content": content, "action": request.action}
 
 
+@app.post("/api/llm/compose", summary="AI写作（素材+提纲）")
+async def llm_compose(request_body: dict, db: Session = Depends(get_db)):
+    """基于知识库素材和用户提纲进行AI写作
+    - **material_ids**: 知识库素材ID列表
+    - **outline**: 用户提供的写作提纲/要求
+    - **style**: 写作风格（formal/casual/academic/news）
+    - **length**: 期望字数（short/medium/long）
+    """
+    config = get_active_config(db)
+    
+    material_ids = request_body.get("material_ids", [])
+    outline = request_body.get("outline", "").strip()
+    style = request_body.get("style", "formal")
+    length = request_body.get("length", "medium")
+    
+    if not outline:
+        raise HTTPException(status_code=400, detail="请提供写作提纲")
+    
+    # 获取素材内容
+    materials = []
+    if material_ids:
+        items = db.query(KnowledgeItem).filter(KnowledgeItem.id.in_(material_ids)).all()
+        for item in items:
+            materials.append(f"【{item.title}】{item.content[:800]}")
+    
+    # 风格和长度映射
+    style_map = {
+        "formal": "正式公文风格，语言规范严谨",
+        "casual": "通俗易懂风格，语言自然流畅",
+        "academic": "学术论文风格，论述严谨有据",
+        "news": "新闻报道风格，客观简洁明了",
+    }
+    length_map = {
+        "short": "500字左右",
+        "medium": "1000-1500字",
+        "long": "2000字以上",
+    }
+    
+    style_desc = style_map.get(style, "正式公文风格")
+    length_desc = length_map.get(length, "1000-1500字")
+    
+    # 构建提示词
+    material_text = "\n\n".join(materials) if materials else "（无参考素材）"
+    
+    messages = [
+        {"role": "system", "content": f"""你是一位专业的中文写作助手。请根据用户提供的参考素材和写作提纲，撰写一篇高质量的文稿。
+
+写作要求：
+- 风格：{style_desc}
+- 篇幅：{length_desc}
+- 充分利用参考素材中的信息和观点
+- 内容要有逻辑性、条理清晰
+- 语言流畅，用词准确
+- 直接输出文稿内容，不要添加额外说明或标题标记"""},
+        {"role": "user", "content": f"""参考素材：
+{material_text}
+
+写作提纲/要求：
+{outline}
+
+请根据以上素材和提纲撰写文稿。"""}
+    ]
+    
+    content = await call_llm(messages, config, max_tokens=4096, temperature=0.7)
+    return {"content": content, "material_count": len(materials), "style": style, "length": length}
+
+
 @app.post("/api/llm/knowledge", summary="知识库智能处理")
 async def llm_knowledge(request: LLMKnowledgeRequest, db: Session = Depends(get_db)):
     """知识库智能处理：提取/分类/总结"""

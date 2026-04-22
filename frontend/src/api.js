@@ -232,4 +232,5 @@ export const llmAPI = {
   writing: (action, content, instruction) => request('/api/llm/writing', { method: 'POST', body: JSON.stringify({ action, content, instruction }) }),
   knowledge: (action, content) => request('/api/llm/knowledge', { method: 'POST', body: JSON.stringify({ action, content }) }),
   proofread: (content) => request('/api/llm/proofread', { method: 'POST', body: JSON.stringify({ content }) }),
+  compose: (materialIds, outline, style, length) => request('/api/llm/compose', { method: 'POST', body: JSON.stringify({ material_ids: materialIds, outline, style, length }) }),
 }
