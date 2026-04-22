@@ -47,9 +47,18 @@ const SEARCH_ENGINES = [
   { name: '百度', key: 'baidu', url: 'https://www.baidu.com/s?wd=' },
   { name: '必应', key: 'bing', url: 'https://www.bing.com/search?q=' },
   { name: '搜狗', key: 'sogou', url: 'https://www.sogou.com/web?query=' },
-  { name: '深言达意', key: 'shenyandayi', url: 'https://shenyandayi.com' },
-  { name: '汉典', key: 'zdic', url: 'http://www.zdic.net' },
-  { name: '写易', key: 'xieyi', url: 'https://www.xieyi.com' },
+]
+
+// 预设网站（快捷访问）
+const PRESET_WEB_SITES = [
+  { name: '人民网', url: 'http://www.people.com.cn' },
+  { name: '新华网', url: 'http://www.xinhuanet.com' },
+  { name: '求是网', url: 'http://www.qstheory.cn' },
+  { name: '中国纪检监察网', url: 'http://www.ccdi.gov.cn' },
+  { name: '学习强国', url: 'https://www.xuexi.cn' },
+  { name: '深言达意', url: 'https://shenyandayi.com' },
+  { name: '汉典', url: 'http://www.zdic.net' },
+  { name: '写易', url: 'https://www.xieyi.com' },
 ]
 
 const toProxyUrl = (url) => {
@@ -411,6 +420,15 @@ function Writing() {
       setWebSearchHistory(prev => [...prev, webSearchUrl])
     }
     setWebSearchUrl(url)
+    setWebSearchIframeKey(prev => prev + 1)
+  }
+
+  // 打开预设网站
+  const handleOpenPresetSite = (site) => {
+    if (webSearchUrl) {
+      setWebSearchHistory(prev => [...prev, webSearchUrl])
+    }
+    setWebSearchUrl(site.url)
     setWebSearchIframeKey(prev => prev + 1)
   }
 
@@ -1093,13 +1111,26 @@ function Writing() {
                 <input type="text" className="w-search-input" placeholder="输入搜索关键词..." value={webSearchQuery} onChange={(e) => setWebSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleWebSearch()} autoComplete="off" style={{flex: 1, minWidth: '150px'}} />
                 <button className="w-btn w-btn-primary" onClick={handleWebSearch}>搜索</button>
                 {webSearchUrl && (
-                  <button className="w-btn w-btn-default" onClick={() => window.open(webSearchUrl, '_blank')}>
-                    在新窗口打开
+                  <button className="w-btn w-btn-default" onClick={() => window.open(webSearchUrl, '_self')}>
+                    当前标签页打开
                   </button>
                 )}
                 <button className="w-btn w-btn-default" onClick={() => setWebPageSearchVisible(!webPageSearchVisible)}>
                   🔍 页面搜索
                 </button>
+              </div>
+              {/* 预设网站快捷按钮 */}
+              <div style={{display: 'flex', gap: '4px', padding: '4px 16px', flexShrink: 0, flexWrap: 'wrap', borderBottom: '1px solid #f0f0f0'}}>
+                {PRESET_WEB_SITES.map(site => (
+                  <button
+                    key={site.name}
+                    className="w-btn w-btn-sm"
+                    style={{fontSize: '12px', padding: '2px 8px', border: '1px solid #d0d0d0', borderRadius: '3px', background: webSearchUrl === site.url ? '#0070c0' : '#fff', color: webSearchUrl === site.url ? '#fff' : '#333', cursor: 'pointer'}}
+                    onClick={() => handleOpenPresetSite(site)}
+                  >
+                    {site.name}
+                  </button>
+                ))}
               </div>
               <div style={{padding: '8px 16px', background: '#fffbe6', borderBottom: '1px solid #ffe58f', fontSize: '12px', color: '#d48806'}}>
                 提示：部分搜索引擎可能禁止嵌入加载，如无法显示请点击"在新窗口打开"
@@ -1130,7 +1161,7 @@ function Writing() {
                       sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-top-navigation-by-user-activation"
                     />
                     <div style={{position: 'absolute', bottom: '4px', right: '8px', zIndex: 5}}>
-                      <button className="w-btn w-btn-sm w-btn-default" onClick={() => window.open(webSearchUrl, '_blank')} style={{fontSize: '11px', opacity: 0.7}}>新窗口打开</button>
+                      <button className="w-btn w-btn-sm w-btn-default" onClick={() => window.open(webSearchUrl, '_self')} style={{fontSize: '11px', opacity: 0.7}}>当前标签页打开</button>
                     </div>
                   </div>
                 ) : (

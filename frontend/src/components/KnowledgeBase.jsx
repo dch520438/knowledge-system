@@ -845,7 +845,7 @@ function KnowledgeBase() {
                     <div style={{fontSize: '48px', marginBottom: '16px'}}>⚠️</div>
                     <div style={{fontSize: '16px', color: '#333', marginBottom: '8px'}}>该网站不允许在框架中嵌入</div>
                     <div style={{fontSize: '14px', color: '#666', marginBottom: '16px'}}>请点击下方按钮在新窗口中打开</div>
-                    <button className="kb-btn kb-btn-primary" onClick={() => window.open(webUrl, '_blank')}>在新窗口打开</button>
+                    <button className="kb-btn kb-btn-primary" onClick={() => window.open(webUrl, '_self')}>当前标签页打开</button>
                   </div>
                 )}
                 {webUrl ? (
@@ -873,7 +873,7 @@ function KnowledgeBase() {
                 >
                   选取内容新建知识
                 </button>
-                <button className="kb-btn kb-btn-default" onClick={() => window.open(webUrl, '_blank')}>在新窗口打开</button>
+                <button className="kb-btn kb-btn-default" onClick={() => window.open(webUrl, '_self')}>当前标签页打开</button>
                 <button className="kb-btn kb-btn-default" onClick={closeWebModal}>
                   关闭
                 </button>
