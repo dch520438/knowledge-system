@@ -158,8 +158,8 @@ function Writing() {
   const [aiComposeMaterials, setAiComposeMaterials] = useState([])
   const [aiComposeLoading, setAiComposeLoading] = useState(false)
   const [aiComposeResult, setAiComposeResult] = useState('')
-  const [knowledgeItems, setKnowledgeItems] = useState([])
-  const [knowledgeSearch, setKnowledgeSearch] = useState('')
+    const [composeKnowledgeItems, setComposeKnowledgeItems] = useState([])
+    const [composeKnowledgeSearch, setComposeKnowledgeSearch] = useState('')
 
   // 字数统计
   const wordStats = useMemo(() => {
@@ -729,12 +729,12 @@ function Writing() {
     try {
       const { knowledgeAPI } = await import('../api')
       let data
-      if (knowledgeSearch.trim()) {
-        data = await knowledgeAPI.search({ keyword: knowledgeSearch.trim() })
+      if (composeKnowledgeSearch.trim()) {
+        data = await knowledgeAPI.search({ keyword: composeKnowledgeSearch.trim() })
       } else {
         data = await knowledgeAPI.getAll()
       }
-      setKnowledgeItems(Array.isArray(data) ? data : [])
+      setComposeKnowledgeItems(Array.isArray(data) ? data : [])
     } catch (err) {
       console.error('获取知识库失败:', err)
     }
@@ -1365,12 +1365,12 @@ function Writing() {
               {/* 左侧：素材选择 */}
               <div style={{width: '280px', flexShrink: 0, display: 'flex', flexDirection: 'column'}}>
                 <div style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '8px'}}>📚 选择参考素材（{aiComposeMaterials.length}项）</div>
-                <input type="text" placeholder="搜索知识库..." value={knowledgeSearch} onChange={(e) => setKnowledgeSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchKnowledgeForCompose()} style={{width: '100%', height: '28px', border: '1px solid #d9d9d9', borderRadius: '4px', padding: '0 8px', fontSize: '12px', marginBottom: '8px', boxSizing: 'border-box'}} />
+                <input type="text" placeholder="搜索知识库..." value={composeKnowledgeSearch} onChange={(e) => setComposeKnowledgeSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchKnowledgeForCompose()} style={{width: '100%', height: '28px', border: '1px solid #d9d9d9', borderRadius: '4px', padding: '0 8px', fontSize: '12px', marginBottom: '8px', boxSizing: 'border-box'}} />
                 <div style={{flex: 1, overflowY: 'auto', border: '1px solid #e8e8e8', borderRadius: '4px', background: '#fafafa'}}>
-                  {knowledgeItems.length === 0 ? (
+                  {composeKnowledgeItems.length === 0 ? (
                     <div style={{padding: '20px', textAlign: 'center', color: '#999', fontSize: '12px'}}>暂无知识素材</div>
                   ) : (
-                    knowledgeItems.map(item => {
+                    composeKnowledgeItems.map(item => {
                       const selected = aiComposeMaterials.find(m => m.id === item.id)
                       return (
                         <div key={item.id} onClick={() => toggleMaterial(item)} style={{padding: '8px 10px', borderBottom: '1px solid #f0f0f0', cursor: 'pointer', background: selected ? '#e6f7ff' : 'transparent', fontSize: '12px'}}>
