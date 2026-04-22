@@ -22,6 +22,10 @@ function Layout({ children }) {
             <span className="nav-icon">❓</span>
             <span className="nav-label">智能问答</span>
           </NavLink>
+          <NavLink to="/settings" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <span className="nav-icon">⚙️</span>
+            <span className="nav-label">设置</span>
+          </NavLink>
         </nav>
       </aside>
       <div className="layout-main">

@@ -25,7 +25,7 @@ from docx.shared import Cm
 import pdfplumber
 
 from database import engine, Base, get_db, SessionLocal
-from models import KnowledgeItem, WritingDocument, QARecord, ProofreadRule
+from models import KnowledgeItem, WritingDocument, QARecord, ProofreadRule, LLMConfig
 from schemas import (
     KnowledgeItemCreate, KnowledgeItemResponse, KnowledgeItemUpdate,
     WritingDocumentCreate, WritingDocumentResponse, WritingDocumentUpdate,
@@ -34,6 +34,9 @@ from schemas import (
     BatchKnowledgeCreate,
     SmartAnswerRequest,
     ProofreadRuleCreate, ProofreadRuleResponse,
+    LLMConfigCreate, LLMConfigUpdate, LLMConfigResponse,
+    LLMChatRequest, LLMChatResponse,
+    LLMQARequest, LLMWritingRequest, LLMKnowledgeRequest, LLMProofreadRequest,
 )
 
 # 创建FastAPI应用实例
@@ -1645,6 +1648,247 @@ async def proxy_web_post(request: Request):
         raise HTTPException(status_code=502, detail="无法连接到目标网页")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"代理网页失败: {str(e)}")
+
+
+# ==================== 大模型配置路由 ====================
+
+@app.get("/api/llm/configs", response_model=List[LLMConfigResponse], summary="获取所有大模型配置")
+def get_llm_configs(db: Session = Depends(get_db)):
+    return db.query(LLMConfig).order_by(LLMConfig.created_at.desc()).all()
+
+@app.get("/api/llm/configs/active", summary="获取当前激活的大模型配置")
+def get_active_llm_config(db: Session = Depends(get_db)):
+    config = db.query(LLMConfig).filter(LLMConfig.is_active == True).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="未配置大模型，请在设置中添加并激活")
+    return config
+
+@app.post("/api/llm/configs", response_model=LLMConfigResponse, summary="创建大模型配置")
+def create_llm_config(config: LLMConfigCreate, db: Session = Depends(get_db)):
+    # 如果设为激活，先取消其他激活状态
+    if config.is_active:
+        db.query(LLMConfig).update({LLMConfig.is_active: False})
+    db_config = LLMConfig(**config.model_dump())
+    db.add(db_config)
+    db.commit()
+    db.refresh(db_config)
+    return db_config
+
+@app.put("/api/llm/configs/{config_id}", response_model=LLMConfigResponse, summary="更新大模型配置")
+def update_llm_config(config_id: int, config: LLMConfigUpdate, db: Session = Depends(get_db)):
+    db_config = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
+    if not db_config:
+        raise HTTPException(status_code=404, detail="配置不存在")
+    update_data = config.model_dump(exclude_unset=True)
+    # 如果设为激活，先取消其他激活状态
+    if update_data.get("is_active"):
+        db.query(LLMConfig).filter(LLMConfig.id != config_id).update({LLMConfig.is_active: False})
+    for key, value in update_data.items():
+        setattr(db_config, key, value)
+    db.commit()
+    db.refresh(db_config)
+    return db_config
+
+@app.delete("/api/llm/configs/{config_id}", summary="删除大模型配置")
+def delete_llm_config(config_id: int, db: Session = Depends(get_db)):
+    db_config = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
+    if not db_config:
+        raise HTTPException(status_code=404, detail="配置不存在")
+    db.delete(db_config)
+    db.commit()
+    return {"message": "配置已删除", "id": config_id}
+
+@app.put("/api/llm/configs/{config_id}/activate", summary="激活大模型配置")
+def activate_llm_config(config_id: int, db: Session = Depends(get_db)):
+    db_config = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
+    if not db_config:
+        raise HTTPException(status_code=404, detail="配置不存在")
+    db.query(LLMConfig).update({LLMConfig.is_active: False})
+    db_config.is_active = True
+    db.commit()
+    db.refresh(db_config)
+    return db_config
+
+
+# ==================== 大模型调用核心函数 ====================
+
+async def call_llm(messages: list, config: LLMConfig = None, max_tokens: int = None, temperature: float = None) -> str:
+    """调用大模型，返回回复文本"""
+    if not config:
+        raise HTTPException(status_code=400, detail="未配置大模型")
+
+    api_base = config.api_base.rstrip('/')
+    url = f"{api_base}/chat/completions"
+
+    headers = {"Content-Type": "application/json"}
+    if config.api_key:
+        headers["Authorization"] = f"Bearer {config.api_key}"
+
+    payload = {
+        "model": config.model,
+        "messages": messages,
+        "max_tokens": max_tokens or config.max_tokens,
+        "temperature": temperature if temperature is not None else config.temperature,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+            return data["choices"][0]["message"]["content"]
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="大模型响应超时，请稍后重试")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"大模型API错误: {e.response.status_code}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"调用大模型失败: {str(e)}")
+
+
+def get_active_config(db: Session) -> LLMConfig:
+    """获取当前激活的大模型配置"""
+    config = db.query(LLMConfig).filter(LLMConfig.is_active == True).first()
+    if not config:
+        raise HTTPException(status_code=400, detail="未配置大模型，请在设置中添加并激活一个配置")
+    return config
+
+
+# ==================== 大模型功能路由 ====================
+
+@app.post("/api/llm/chat", summary="通用对话")
+async def llm_chat(request: LLMChatRequest, db: Session = Depends(get_db)):
+    """通用大模型对话"""
+    config = get_active_config(db)
+    content = await call_llm(request.messages, config, request.max_tokens, request.temperature)
+    return LLMChatResponse(content=content, model=config.model, provider=config.provider)
+
+
+@app.post("/api/llm/qa", summary="智能问答（知识库增强）")
+async def llm_qa(request: LLMQARequest, db: Session = Depends(get_db)):
+    """基于知识库的智能问答"""
+    config = get_active_config(db)
+
+    # 从知识库搜索相关内容
+    keywords = [kw.strip() for kw in re.split(r'[\s,，。.!！?？;；:：、]+', request.question) if len(kw.strip()) >= 2]
+    if not keywords:
+        keywords = [request.question.strip()]
+
+    knowledge_items = []
+    for kw in keywords[:5]:
+        items = db.query(KnowledgeItem).filter(
+            or_(
+                KnowledgeItem.title.contains(kw),
+                KnowledgeItem.content.contains(kw),
+            )
+        ).limit(3).all()
+        knowledge_items.extend(items)
+
+    # 去重
+    seen = set()
+    unique_items = []
+    for item in knowledge_items:
+        if item.id not in seen:
+            seen.add(item.id)
+            unique_items.append(item)
+
+    # 构建提示词
+    context = "\n".join([f"- {item.title}: {item.content[:500]}" for item in unique_items[:10]])
+
+    messages = [
+        {"role": "system", "content": "你是一个专业的知识助手。请根据以下知识库内容回答用户的问题。如果知识库中没有相关信息，请根据你的知识回答，并说明这不是来自知识库。\n\n知识库内容：\n" + context},
+        {"role": "user", "content": request.question}
+    ]
+
+    content = await call_llm(messages, config)
+    return {
+        "answer": content,
+        "sources": [{"id": item.id, "title": item.title} for item in unique_items[:5]],
+        "model": config.model,
+    }
+
+
+@app.post("/api/llm/writing", summary="写作助手增强")
+async def llm_writing(request: LLMWritingRequest, db: Session = Depends(get_db)):
+    """写作助手：润色/续写/总结/扩写"""
+    config = get_active_config(db)
+
+    prompts = {
+        "polish": f"请润色以下文稿，改善语言表达，修正语病，保持原意不变，直接返回润色后的内容：\n\n{request.content}",
+        "continue": f"请根据以下文稿的上下文和风格，续写约200字，直接返回续写内容：\n\n{request.content}",
+        "summarize": f"请总结以下文稿的主要内容，提炼要点，直接返回总结：\n\n{request.content}",
+        "expand": f"请扩写以下内容，丰富细节和论述，保持原有风格，直接返回扩写后的内容：\n\n{request.content}",
+    }
+
+    instruction = request.instruction.strip() if request.instruction else ""
+    user_content = prompts.get(request.action, f"{instruction}\n\n{request.content}" if instruction else request.content)
+
+    messages = [
+        {"role": "system", "content": "你是一个专业的中文写作助手。请直接返回处理后的内容，不要添加额外说明。"},
+        {"role": "user", "content": user_content}
+    ]
+
+    content = await call_llm(messages, config, max_tokens=4096)
+    return {"content": content, "action": request.action}
+
+
+@app.post("/api/llm/knowledge", summary="知识库智能处理")
+async def llm_knowledge(request: LLMKnowledgeRequest, db: Session = Depends(get_db)):
+    """知识库智能处理：提取/分类/总结"""
+    config = get_active_config(db)
+
+    prompts = {
+        "extract": "请从以下内容中提取关键知识点，每行一个，格式为「知识点：解释」：\n\n",
+        "classify": "请为以下内容推荐合适的分类和标签，返回JSON格式 {\"category\": \"分类名\", \"tags\": [\"标签1\", \"标签2\"]}：\n\n",
+        "summarize": "请用简洁的语言总结以下内容的要点：\n\n",
+    }
+
+    user_content = prompts.get(request.action, "") + request.content
+    messages = [
+        {"role": "system", "content": "你是一个专业的知识管理助手。请直接返回结果，不要添加额外说明。"},
+        {"role": "user", "content": user_content}
+    ]
+
+    content = await call_llm(messages, config)
+    return {"content": content, "action": request.action}
+
+
+@app.post("/api/llm/proofread", summary="智能核稿")
+async def llm_proofread(request: LLMProofreadRequest, db: Session = Depends(get_db)):
+    """大模型辅助核稿"""
+    config = get_active_config(db)
+
+    messages = [
+        {"role": "system", "content": """你是一个专业的中文文稿核稿助手。请检查以下文稿中的问题，包括：
+1. 错别字和用词错误
+2. 标点符号错误
+3. 语法问题
+4. 逻辑不通顺的地方
+5. 格式问题
+
+请以JSON数组格式返回发现的问题，每个问题包含：
+- "type": 问题类型（错别字/标点/语法/逻辑/格式）
+- "text": 有问题的原文片段
+- "suggestion": 修改建议
+- "severity": 严重程度（error/warning/info）
+
+只返回JSON数组，不要其他内容。如果没有发现问题，返回空数组 []。"""},
+        {"role": "user", "content": request.content}
+    ]
+
+    content = await call_llm(messages, config, max_tokens=4096, temperature=0.3)
+
+    # 尝试解析JSON
+    try:
+        # 提取JSON部分
+        json_match = re.search(r'\[.*\]', content, re.DOTALL)
+        if json_match:
+            issues = json.loads(json_match.group())
+        else:
+            issues = []
+    except json.JSONDecodeError:
+        issues = []
+
+    return {"issues": issues, "raw_response": content}
 
 
 # ==================== 静态文件服务（生产模式） ====================

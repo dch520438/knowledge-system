@@ -152,3 +152,66 @@ class ProofreadRuleResponse(BaseModel):
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ==================== 大模型配置 Schema ====================
+
+class LLMConfigCreate(BaseModel):
+    name: str
+    provider: str
+    api_base: str
+    api_key: str = ""
+    model: str
+    is_active: bool = False
+    max_tokens: int = 2048
+    temperature: float = 0.7
+
+class LLMConfigUpdate(BaseModel):
+    name: Optional[str] = None
+    provider: Optional[str] = None
+    api_base: Optional[str] = None
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+    is_active: Optional[bool] = None
+    max_tokens: Optional[int] = None
+    temperature: Optional[float] = None
+
+class LLMConfigResponse(BaseModel):
+    id: int
+    name: str
+    provider: str
+    api_base: str
+    api_key: str = ""
+    model: str
+    is_active: bool
+    max_tokens: int
+    temperature: float
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class LLMChatRequest(BaseModel):
+    messages: list  # [{"role": "user/system/assistant", "content": "..."}]
+    max_tokens: Optional[int] = None
+    temperature: Optional[float] = None
+
+class LLMChatResponse(BaseModel):
+    content: str
+    model: str
+    provider: str
+
+class LLMQARequest(BaseModel):
+    question: str
+
+class LLMWritingRequest(BaseModel):
+    action: str  # polish/continue/summarize/expand
+    content: str
+    instruction: str = ""
+
+class LLMKnowledgeRequest(BaseModel):
+    action: str  # extract/classify/summarize
+    content: str
+
+class LLMProofreadRequest(BaseModel):
+    content: str

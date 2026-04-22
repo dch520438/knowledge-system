@@ -218,3 +218,18 @@ export const proofreadAPI = {
   deleteRule: (id) => request(`/api/proofread/rules/${id}`, { method: 'DELETE' }),
   check: (content) => request('/api/proofread/check', { method: 'POST', body: JSON.stringify({ content }) }),
 }
+
+// ==================== 大模型 API ====================
+export const llmAPI = {
+  getConfigs: () => request('/api/llm/configs'),
+  getActiveConfig: () => request('/api/llm/configs/active'),
+  create: (data) => request('/api/llm/configs', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/api/llm/configs/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id) => request(`/api/llm/configs/${id}`, { method: 'DELETE' }),
+  activate: (id) => request(`/api/llm/configs/${id}/activate`, { method: 'PUT' }),
+  chat: (messages, maxTokens, temperature) => request('/api/llm/chat', { method: 'POST', body: JSON.stringify({ messages, max_tokens: maxTokens, temperature }) }),
+  qa: (question) => request('/api/llm/qa', { method: 'POST', body: JSON.stringify({ question }) }),
+  writing: (action, content, instruction) => request('/api/llm/writing', { method: 'POST', body: JSON.stringify({ action, content, instruction }) }),
+  knowledge: (action, content) => request('/api/llm/knowledge', { method: 'POST', body: JSON.stringify({ action, content }) }),
+  proofread: (content) => request('/api/llm/proofread', { method: 'POST', body: JSON.stringify({ content }) }),
+}

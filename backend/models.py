@@ -5,7 +5,7 @@
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, Float
 from database import Base
 
 
@@ -21,6 +21,22 @@ class KnowledgeItem(Base):
     created_at = Column(DateTime, default=datetime.now, comment="创建时间")
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
 
+
+class LLMConfig(Base):
+    """大模型配置"""
+    __tablename__ = "llm_configs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, comment="配置名称，如 'DeepSeek'")
+    provider = Column(String(50), nullable=False, comment="提供商：openai/deepseek/qwen/ollama/custom")
+    api_base = Column(String(500), nullable=False, comment="API地址")
+    api_key = Column(String(500), default="", comment="API密钥")
+    model = Column(String(100), nullable=False, comment="模型名称")
+    is_active = Column(Boolean, default=False, comment="是否为当前使用的配置")
+    max_tokens = Column(Integer, default=2048, comment="最大生成token数")
+    temperature = Column(Float, default=0.7, comment="温度参数")
+    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
 
 class ProofreadRule(Base):
     """核稿规则模型"""
