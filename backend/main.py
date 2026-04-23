@@ -1718,7 +1718,13 @@ async def call_llm(messages: list, config: LLMConfig = None, max_tokens: int = N
         raise HTTPException(status_code=400, detail="未配置大模型")
 
     api_base = config.api_base.rstrip('/')
-    url = f"{api_base}/chat/completions"
+    # 智能拼接 API 地址
+    if api_base.endswith('/v1'):
+        url = f"{api_base}/chat/completions"
+    elif '/v1/' in api_base:
+        url = f"{api_base}/chat/completions"
+    else:
+        url = f"{api_base}/v1/chat/completions"
 
     headers = {"Content-Type": "application/json"}
     if config.api_key:
