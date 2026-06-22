@@ -9,8 +9,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# 数据库文件路径
-DATABASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+# 数据库文件路径（支持通过环境变量自定义，用于打包后）
+if os.environ.get('DATA_DIR'):
+    DATABASE_DIR = os.environ.get('DATA_DIR')
+else:
+    DATABASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 os.makedirs(DATABASE_DIR, exist_ok=True)
 DATABASE_URL = f"sqlite:///{os.path.join(DATABASE_DIR, 'knowledge_system.db')}"
 
