@@ -1,0 +1,169 @@
+name: Build Linux Packages
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev rpm
+          pip install pyinstaller
+          cd backend
+          pip install -r requirements.txt
+          cd ..
+          cd frontend
+          npm install
+          npm run build
+          cd ..
+          rm -rf backend/static
+          cp -r frontend/dist backend/static
+
+      - name: Build deb package
+        run: |
+          VERSION="1.0.0"
+          ARCH="amd64"
+          BUILD_DIR="build-scripts/kylin/build"
+          PROJECT_ROOT="$PWD"
+          rm -rf "$BUILD_DIR"
+          mkdir -p "$BUILD_DIR"
+
+          DEB_DIR="$BUILD_DIR/knowledge-workstation_${VERSION}_${ARCH}"
+          mkdir -p "$DEB_DIR/DEBIAN"
+          mkdir -p "$DEB_DIR/opt/knowledge-workstation"
+          mkdir -p "$DEB_DIR/usr/share/applications"
+          mkdir -p "$DEB_DIR/usr/bin"
+
+          cp -r backend "$DEB_DIR/opt/knowledge-workstation/"
+          cp -r templates "$DEB_DIR/opt/knowledge-workstation/" 2>/dev/null || true
+          cp start.sh "$DEB_DIR/opt/knowledge-workstation/"
+
+          cat > "$DEB_DIR/usr/bin/knowledge-workstation" << 'EOF'
+          #!/bin/bash
+          cd /opt/knowledge-workstation
+          exec ./start.sh "$@"
+          EOF
+          chmod +x "$DEB_DIR/usr/bin/knowledge-workstation"
+
+          cat > "$DEB_DIR/usr/share/applications/knowledge-workstation.desktop" << EOF
+          [Desktop Entry]
+          Name=智能知识工作台
+          Name[zh_CN]=智能知识工作台
+          Comment=集成知识库管理、智能写作、核稿检查、智能问答的综合工作平台
+          Exec=/usr/bin/knowledge-workstation
+          Icon=knowledge-workstation
+          Type=Application
+          Categories=Office;Education;
+          Terminal=false
+          StartupNotify=true
+          EOF
+
+          cat > "$DEB_DIR/DEBIAN/control" << EOF
+          Package: knowledge-workstation
+          Version: $VERSION
+          Section: office
+          Priority: optional
+          Architecture: $ARCH
+          Depends: python3 (>= 3.8), python3-pip, nodejs (>= 16) | node (>= 16)
+          Maintainer: Knowledge Workstation Team
+          Description: 智能知识工作台
+           集成知识库管理、智能写作、核稿检查、
+           智能问答和大模型辅助的综合工作平台。
+          EOF
+
+          cat > "$DEB_DIR/DEBIAN/postinst" << 'EOF'
+          #!/bin/bash
+          set -e
+          cd /opt/knowledge-workstation/backend
+          pip3 install -r requirements.txt --break-system-packages -q 2>/dev/null || pip3 install -r requirements.txt -q 2>/dev/null || true
+          mkdir -p /opt/knowledge-workstation/backend/data
+          chmod 755 /opt/knowledge-workstation/backend/data
+          EOF
+          chmod +x "$DEB_DIR/DEBIAN/postinst"
+
+          cat > "$DEB_DIR/DEBIAN/prerm" << 'EOF'
+          #!/bin/bash
+          set -e
+          pkill -f "uvicorn main:app" 2>/dev/null || true
+          EOF
+          chmod +x "$DEB_DIR/DEBIAN/prerm"
+
+          dpkg-deb --build "$DEB_DIR"
+          mv "$BUILD_DIR/knowledge-workstation_${VERSION}_${ARCH}.deb" "$BUILD_DIR/"
+
+      - name: Build AppImage
+        run: |
+          VERSION="1.0.0"
+          BUILD_DIR="build-scripts/kylin/build"
+          PROJECT_ROOT="$PWD"
+          APPIMAGE_DIR="$BUILD_DIR/AppImage"
+          mkdir -p "$APPIMAGE_DIR/usr/bin"
+          mkdir -p "$APPIMAGE_DIR/usr/share/applications"
+
+          cp -r "$PROJECT_ROOT/backend" "$APPIMAGE_DIR/usr/bin/"
+          cp -r "$PROJECT_ROOT/templates" "$APPIMAGE_DIR/usr/bin/" 2>/dev/null || true
+
+          cat > "$APPIMAGE_DIR/AppRun" << 'EOF'
+          #!/bin/bash
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export PATH="$HERE/usr/bin:$PATH"
+          export PYTHONPATH="$HERE/usr/bin/backend:$PYTHONPATH"
+          cd "$HERE/usr/bin/backend"
+          exec python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
+          EOF
+          chmod +x "$APPIMAGE_DIR/AppRun"
+
+          cat > "$APPIMAGE_DIR/usr/share/applications/knowledge-workstation.desktop" << EOF
+          [Desktop Entry]
+          Name=智能知识工作台
+          Exec=AppRun
+          Icon=knowledge-workstation
+          Type=Application
+          Categories=Office;Education;
+          Terminal=true
+          EOF
+          cp "$APPIMAGE_DIR/usr/share/applications/knowledge-workstation.desktop" "$APPIMAGE_DIR/knowledge-workstation.desktop"
+
+          wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O "$BUILD_DIR/appimagetool-x86_64.AppImage" || true
+          if [ -f "$BUILD_DIR/appimagetool-x86_64.AppImage" ]; then
+            chmod +x "$BUILD_DIR/appimagetool-x86_64.AppImage"
+            ARCH=x86_64 "$BUILD_DIR/appimagetool-x86_64.AppImage" "$APPIMAGE_DIR" "$BUILD_DIR/KnowledgeWorkstation-x86_64.AppImage" 2>/dev/null || true
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: KnowledgeWorkstation-Linux
+          path: |
+            build-scripts/kylin/build/*.deb
+            build-scripts/kylin/build/*.AppImage
+
+      - name: Upload Release Assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build-scripts/kylin/build/*.deb
+            build-scripts/kylin/build/*.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

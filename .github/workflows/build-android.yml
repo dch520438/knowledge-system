@@ -1,0 +1,97 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Create Android project
+        run: |
+          SCRIPT_DIR="$PWD/build-scripts/android"
+          PROJECT_DIR="$SCRIPT_DIR/project"
+          mkdir -p "$PROJECT_DIR/app/src/main/java/com/knowledgeworkstation/app"
+          mkdir -p "$PROJECT_DIR/app/src/main/res/layout"
+          mkdir -p "$PROJECT_DIR/app/src/main/res/values"
+          mkdir -p "$PROJECT_DIR/app/src/main/res/mipmap-hdpi"
+          mkdir -p "$PROJECT_DIR/app/src/main/res/mipmap-mdpi"
+          mkdir -p "$PROJECT_DIR/app/src/main/res/mipmap-xhdpi"
+          mkdir -p "$PROJECT_DIR/app/src/main/res/mipmap-xxhdpi"
+          mkdir -p "$PROJECT_DIR/app/src/main/res/mipmap-xxxhdpi"
+
+          cp "$SCRIPT_DIR/build.gradle.kts" "$PROJECT_DIR/app/build.gradle.kts"
+          cp "$SCRIPT_DIR/AndroidManifest.xml" "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          cp "$SCRIPT_DIR/MainActivity.java" "$PROJECT_DIR/app/src/main/java/com/knowledgeworkstation/app/MainActivity.java"
+          cp "$SCRIPT_DIR/activity_main.xml" "$PROJECT_DIR/app/src/main/res/layout/activity_main.xml"
+          cp "$SCRIPT_DIR/strings.xml" "$PROJECT_DIR/app/src/main/res/values/strings.xml"
+
+          cat > "$PROJECT_DIR/build.gradle.kts" << 'EOF'
+          plugins {
+              id("com.android.application") version "8.2.0" apply false
+          }
+          EOF
+
+          cat > "$PROJECT_DIR/settings.gradle.kts" << 'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "KnowledgeWorkstation"
+          include(":app")
+          EOF
+
+      - name: Generate Gradle Wrapper
+        run: |
+          cd build-scripts/android/project
+          gradle wrapper --gradle-version 8.2 || true
+          if [ ! -f "gradlew" ]; then
+            mkdir -p gradle/wrapper
+            curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradle/wrapper/gradle-wrapper.jar
+            curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradlew
+            chmod +x gradlew
+          fi
+
+      - name: Build APK
+        run: |
+          cd build-scripts/android/project
+          ./gradlew assembleRelease
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KnowledgeWorkstation-Android
+          path: build-scripts/android/project/app/build/outputs/apk/release/*.apk
+
+      - name: Upload Release Asset
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build-scripts/android/project/app/build/outputs/apk/release/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

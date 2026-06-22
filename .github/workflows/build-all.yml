@@ -1,0 +1,285 @@
+name: Build All Platforms
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (如 v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Python dependencies
+        run: |
+          pip install pyinstaller pyinstaller-hooks-contrib
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+          cd ..
+          Remove-Item -Recurse -Force backend/static -ErrorAction SilentlyContinue
+          Copy-Item -Recurse frontend/dist backend/static
+
+      - name: Build EXE with PyInstaller
+        run: |
+          cd build-scripts/windows
+          pyinstaller --clean KnowledgeWorkstation.spec
+
+      - name: Copy templates to dist
+        run: |
+          if (Test-Path templates) {
+            Copy-Item -Recurse templates build-scripts/windows/dist/
+          }
+
+      - name: Create ZIP
+        run: |
+          cd build-scripts/windows/dist
+          Compress-Archive -Path * -DestinationPath ../../KnowledgeWorkstation-Windows.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KnowledgeWorkstation-Windows
+          path: build-scripts/KnowledgeWorkstation-Windows.zip
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev
+          cd backend
+          pip install -r requirements.txt
+          cd ..
+          cd frontend
+          npm install
+          npm run build
+          cd ..
+          rm -rf backend/static
+          cp -r frontend/dist backend/static
+
+      - name: Build deb package
+        run: |
+          VERSION="1.0.0"
+          ARCH="amd64"
+          BUILD_DIR="build-scripts/kylin/build"
+          rm -rf "$BUILD_DIR"
+          mkdir -p "$BUILD_DIR"
+
+          DEB_DIR="$BUILD_DIR/knowledge-workstation_${VERSION}_${ARCH}"
+          mkdir -p "$DEB_DIR/DEBIAN"
+          mkdir -p "$DEB_DIR/opt/knowledge-workstation"
+          mkdir -p "$DEB_DIR/usr/share/applications"
+          mkdir -p "$DEB_DIR/usr/bin"
+
+          cp -r backend "$DEB_DIR/opt/knowledge-workstation/"
+          cp -r templates "$DEB_DIR/opt/knowledge-workstation/" 2>/dev/null || true
+          cp start.sh "$DEB_DIR/opt/knowledge-workstation/"
+
+          cat > "$DEB_DIR/usr/bin/knowledge-workstation" << 'EOF'
+          #!/bin/bash
+          cd /opt/knowledge-workstation
+          exec ./start.sh "$@"
+          EOF
+          chmod +x "$DEB_DIR/usr/bin/knowledge-workstation"
+
+          cat > "$DEB_DIR/usr/share/applications/knowledge-workstation.desktop" << EOF
+          [Desktop Entry]
+          Name=智能知识工作台
+          Name[zh_CN]=智能知识工作台
+          Comment=集成知识库管理、智能写作、核稿检查、智能问答的综合工作平台
+          Exec=/usr/bin/knowledge-workstation
+          Icon=knowledge-workstation
+          Type=Application
+          Categories=Office;Education;
+          Terminal=false
+          StartupNotify=true
+          EOF
+
+          cat > "$DEB_DIR/DEBIAN/control" << EOF
+          Package: knowledge-workstation
+          Version: $VERSION
+          Section: office
+          Priority: optional
+          Architecture: $ARCH
+          Depends: python3 (>= 3.8), python3-pip, nodejs (>= 16) | node (>= 16)
+          Maintainer: Knowledge Workstation Team
+          Description: 智能知识工作台
+           集成知识库管理、智能写作、核稿检查、
+           智能问答和大模型辅助的综合工作平台。
+          EOF
+
+          cat > "$DEB_DIR/DEBIAN/postinst" << 'EOF'
+          #!/bin/bash
+          set -e
+          cd /opt/knowledge-workstation/backend
+          pip3 install -r requirements.txt --break-system-packages -q 2>/dev/null || pip3 install -r requirements.txt -q 2>/dev/null || true
+          mkdir -p /opt/knowledge-workstation/backend/data
+          chmod 755 /opt/knowledge-workstation/backend/data
+          EOF
+          chmod +x "$DEB_DIR/DEBIAN/postinst"
+
+          cat > "$DEB_DIR/DEBIAN/prerm" << 'EOF'
+          #!/bin/bash
+          set -e
+          pkill -f "uvicorn main:app" 2>/dev/null || true
+          EOF
+          chmod +x "$DEB_DIR/DEBIAN/prerm"
+
+          dpkg-deb --build "$DEB_DIR"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KnowledgeWorkstation-Linux
+          path: build-scripts/kylin/build/*.deb
+
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Create Android project
+        run: |
+          SCRIPT_DIR="$PWD/build-scripts/android"
+          PROJECT_DIR="$SCRIPT_DIR/project"
+          mkdir -p "$PROJECT_DIR/app/src/main/java/com/knowledgeworkstation/app"
+          mkdir -p "$PROJECT_DIR/app/src/main/res/layout"
+          mkdir -p "$PROJECT_DIR/app/src/main/res/values"
+
+          cp "$SCRIPT_DIR/build.gradle.kts" "$PROJECT_DIR/app/build.gradle.kts"
+          cp "$SCRIPT_DIR/AndroidManifest.xml" "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          cp "$SCRIPT_DIR/MainActivity.java" "$PROJECT_DIR/app/src/main/java/com/knowledgeworkstation/app/MainActivity.java"
+          cp "$SCRIPT_DIR/activity_main.xml" "$PROJECT_DIR/app/src/main/res/layout/activity_main.xml"
+          cp "$SCRIPT_DIR/strings.xml" "$PROJECT_DIR/app/src/main/res/values/strings.xml"
+
+          cat > "$PROJECT_DIR/build.gradle.kts" << 'EOF'
+          plugins {
+              id("com.android.application") version "8.2.0" apply false
+          }
+          EOF
+
+          cat > "$PROJECT_DIR/settings.gradle.kts" << 'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "KnowledgeWorkstation"
+          include(":app")
+          EOF
+
+      - name: Generate Gradle Wrapper
+        run: |
+          cd build-scripts/android/project
+          gradle wrapper --gradle-version 8.2 || true
+          if [ ! -f "gradlew" ]; then
+            mkdir -p gradle/wrapper
+            curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradle/wrapper/gradle-wrapper.jar
+            curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradlew
+            chmod +x gradlew
+          fi
+
+      - name: Build APK
+        run: |
+          cd build-scripts/android/project
+          ./gradlew assembleRelease
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KnowledgeWorkstation-Android
+          path: build-scripts/android/project/app/build/outputs/apk/release/*.apk
+
+  release:
+    needs: [build-windows, build-linux, build-android]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/KnowledgeWorkstation-Windows/*.zip
+            artifacts/KnowledgeWorkstation-Linux/*.deb
+            artifacts/KnowledgeWorkstation-Android/*.apk
+          body: |
+            ## 智能知识工作台 ${{ github.ref_name }}
+
+            ### 安装包下载
+
+            | 平台 | 文件 | 说明 |
+            |------|------|------|
+            | Windows | `KnowledgeWorkstation-Windows.zip` | 解压后运行 `.exe` |
+            | Linux (deb) | `knowledge-workstation_1.0.0_amd64.deb` | `sudo dpkg -i` 安装 |
+            | Android | `app-release-unsigned.apk` | 安装后连接服务器使用 |
+
+            ### 快速开始
+
+            **Windows**: 解压 ZIP，双击 `KnowledgeWorkstation.exe`
+
+            **Linux**: `sudo dpkg -i knowledge-workstation_1.0.0_amd64.deb && knowledge-workstation`
+
+            **Android**: 安装 APK 后，修改服务器地址指向后端服务
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

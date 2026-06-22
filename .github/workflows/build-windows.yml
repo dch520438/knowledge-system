@@ -1,0 +1,70 @@
+name: Build Windows Installer
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Python dependencies
+        run: |
+          pip install pyinstaller pyinstaller-hooks-contrib
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+          cd ..
+          Remove-Item -Recurse -Force backend/static -ErrorAction SilentlyContinue
+          Copy-Item -Recurse frontend/dist backend/static
+
+      - name: Build EXE with PyInstaller
+        run: |
+          cd build-scripts/windows
+          pyinstaller --clean KnowledgeWorkstation.spec
+
+      - name: Copy templates to dist
+        run: |
+          if (Test-Path templates) {
+            Copy-Item -Recurse templates build-scripts/windows/dist/
+          }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KnowledgeWorkstation-Windows
+          path: build-scripts/windows/dist/
+
+      - name: Create ZIP for release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cd build-scripts/windows/dist
+          Compress-Archive -Path * -DestinationPath ../../KnowledgeWorkstation-Windows.zip
+
+      - name: Upload Release Asset
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build-scripts/KnowledgeWorkstation-Windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
