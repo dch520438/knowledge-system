@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -41,6 +41,19 @@ jobs:
           cp "$SCRIPT_DIR/activity_main.xml" "$PROJECT_DIR/app/src/main/res/layout/activity_main.xml"
           cp "$SCRIPT_DIR/strings.xml" "$PROJECT_DIR/app/src/main/res/values/strings.xml"
 
+          # Create themes.xml for AppCompat theme
+          mkdir -p "$PROJECT_DIR/app/src/main/res/values"
+          cat > "$PROJECT_DIR/app/src/main/res/values/themes.xml" << 'XMLEOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="Theme.KnowledgeWorkstation" parent="Theme.AppCompat.Light.DarkActionBar">
+              </style>
+          </resources>
+          XMLEOF
+
+          # Create empty proguard-rules.pro
+          touch "$PROJECT_DIR/app/proguard-rules.pro"
+
           cat > "$PROJECT_DIR/build.gradle.kts" << 'EOF'
           plugins {
               id("com.android.application") version "8.2.0" apply false
@@ -69,13 +82,31 @@ jobs:
       - name: Generate Gradle Wrapper
         run: |
           cd build-scripts/android/project
-          gradle wrapper --gradle-version 8.2 || true
-          if [ ! -f "gradlew" ]; then
-            mkdir -p gradle/wrapper
-            curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradle/wrapper/gradle-wrapper.jar
-            curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradlew
-            chmod +x gradlew
-          fi
+          # Download gradle wrapper directly
+          mkdir -p gradle/wrapper
+          curl -sL -o gradle/wrapper/gradle-wrapper.jar \
+            "https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradle/wrapper/gradle-wrapper.jar" || \
+            curl -sL -o gradle/wrapper/gradle-wrapper.jar \
+            "https://services.gradle.org/distributions/gradle-8.2-bin.zip"
+          
+          # Create gradlew script
+          cat > gradlew << 'GRADLEOF'
+          #!/bin/bash
+          DIR="$(cd "$(dirname "$0")" && pwd)"
+          exec java -cp "$DIR/gradle/wrapper/gradle-wrapper.jar" org.gradle.wrapper.GradleWrapperMain "$@"
+          GRADLEOF
+          chmod +x gradlew
+
+          # Create gradle-wrapper.properties
+          cat > gradle/wrapper/gradle-wrapper.properties << 'PROPEOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-bin.zip
+          networkTimeout=10000
+          validateDistributionUrl=true
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          PROPEOF
 
       - name: Build APK
         run: |
