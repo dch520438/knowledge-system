@@ -54,7 +54,7 @@ if backend_dir not in sys.path:
 log_dir = get_log_dir()
 log_file = os.path.join(log_dir, 'server.log')
 
-# 配置 uvicorn 日志
+# 配置根日志记录器
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -62,6 +62,14 @@ logging.basicConfig(
         logging.FileHandler(log_file, encoding='utf-8'),
     ]
 )
+
+# 修复无控制台时的 sys.stdout/stderr 为 None 问题
+# PyInstaller + console=False 时 sys.stdout 为 None，导致 uvicorn 日志配置失败
+if sys.stdout is None:
+    sys.stdout = io.StringIO()
+if sys.stderr is None:
+    sys.stderr = io.StringIO()
+
 logger = logging.getLogger(__name__)
 
 # 导入 FastAPI 应用
@@ -88,18 +96,15 @@ def main():
     # 在新线程中打开浏览器
     threading.Thread(target=open_browser, daemon=True).start()
 
-    # 启动 Uvicorn 服务（日志写入文件）
-    config = uvicorn.Config(
+    # 启动 Uvicorn 服务（禁用默认日志配置，使用已配置的日志）
+    uvicorn.run(
         app,
         host="0.0.0.0",
         port=8000,
         log_level="info",
-        access_log=True,
+        access_log=False,
+        log_config=None,  # 禁用 uvicorn 默认日志配置，避免与 logging.basicConfig 冲突
     )
-    server = uvicorn.Server(config)
-    # 配置日志处理器：写入文件
-    config.setup_event_loop()
-    server.run()
 
 if __name__ == "__main__":
     main()
