@@ -1719,9 +1719,10 @@ async def call_llm(messages: list, config: LLMConfig = None, max_tokens: int = N
 
     api_base = config.api_base.rstrip('/')
     # 智能拼接 API 地址
-    if api_base.endswith('/v1'):
+    # 支持 /v1 /v2 /v3 /v4 /v5 等版本路径，以及自定义路径
+    if api_base.endswith('/v1') or api_base.endswith('/v2') or api_base.endswith('/v3') or api_base.endswith('/v4') or api_base.endswith('/v5'):
         url = f"{api_base}/chat/completions"
-    elif '/v1/' in api_base:
+    elif '/v1/' in api_base or '/v2/' in api_base or '/v3/' in api_base or '/v4/' in api_base or '/v5/' in api_base:
         url = f"{api_base}/chat/completions"
     else:
         url = f"{api_base}/v1/chat/completions"
