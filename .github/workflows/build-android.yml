@@ -22,18 +22,24 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install Android SDK components
+        run: |
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.2
+
       - name: Create Android project
         run: |
+          set -e
           SCRIPT_DIR="$PWD/build-scripts/android"
-          PROJECT_DIR="$SCRIPT_DIR/project"
+          PROJECT_DIR="$PWD/android-project"
           mkdir -p "$PROJECT_DIR/app/src/main/java/com/knowledgeworkstation/app"
           mkdir -p "$PROJECT_DIR/app/src/main/res/layout"
           mkdir -p "$PROJECT_DIR/app/src/main/res/values"
           mkdir -p "$PROJECT_DIR/app/src/main/res/mipmap-hdpi"
-          mkdir -p "$PROJECT_DIR/app/src/main/res/mipmap-mdpi"
-          mkdir -p "$PROJECT_DIR/app/src/main/res/mipmap-xhdpi"
-          mkdir -p "$PROJECT_DIR/app/src/main/res/mipmap-xxhdpi"
-          mkdir -p "$PROJECT_DIR/app/src/main/res/mipmap-xxxhdpi"
 
           cp "$SCRIPT_DIR/build.gradle.kts" "$PROJECT_DIR/app/build.gradle.kts"
           cp "$SCRIPT_DIR/AndroidManifest.xml" "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
@@ -41,8 +47,6 @@ jobs:
           cp "$SCRIPT_DIR/activity_main.xml" "$PROJECT_DIR/app/src/main/res/layout/activity_main.xml"
           cp "$SCRIPT_DIR/strings.xml" "$PROJECT_DIR/app/src/main/res/values/strings.xml"
 
-          # Create themes.xml for AppCompat theme
-          mkdir -p "$PROJECT_DIR/app/src/main/res/values"
           cat > "$PROJECT_DIR/app/src/main/res/values/themes.xml" << 'XMLEOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -51,7 +55,6 @@ jobs:
           </resources>
           XMLEOF
 
-          # Create empty proguard-rules.pro
           touch "$PROJECT_DIR/app/proguard-rules.pro"
 
           cat > "$PROJECT_DIR/build.gradle.kts" << 'EOF'
@@ -79,50 +82,28 @@ jobs:
           include(":app")
           EOF
 
-      - name: Generate Gradle Wrapper
-        run: |
-          cd build-scripts/android/project
-          # Download gradle wrapper directly
-          mkdir -p gradle/wrapper
-          curl -sL -o gradle/wrapper/gradle-wrapper.jar \
-            "https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradle/wrapper/gradle-wrapper.jar" || \
-            curl -sL -o gradle/wrapper/gradle-wrapper.jar \
-            "https://services.gradle.org/distributions/gradle-8.2-bin.zip"
-          
-          # Create gradlew script
-          cat > gradlew << 'GRADLEOF'
-          #!/bin/bash
-          DIR="$(cd "$(dirname "$0")" && pwd)"
-          exec java -cp "$DIR/gradle/wrapper/gradle-wrapper.jar" org.gradle.wrapper.GradleWrapperMain "$@"
-          GRADLEOF
-          chmod +x gradlew
-
-          # Create gradle-wrapper.properties
-          cat > gradle/wrapper/gradle-wrapper.properties << 'PROPEOF'
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-bin.zip
-          networkTimeout=10000
-          validateDistributionUrl=true
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          PROPEOF
+          cd "$PROJECT_DIR"
+          gradle wrapper --gradle-version 8.2
 
       - name: Build APK
         run: |
-          cd build-scripts/android/project
-          ./gradlew assembleRelease
+          cd android-project
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Verify APK
+        run: |
+          ls -la android-project/app/build/outputs/apk/release/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: KnowledgeWorkstation-Android
-          path: build-scripts/android/project/app/build/outputs/apk/release/*.apk
+          path: android-project/app/build/outputs/apk/release/*.apk
 
       - name: Upload Release Asset
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
         with:
-          files: build-scripts/android/project/app/build/outputs/apk/release/*.apk
+          files: android-project/app/build/outputs/apk/release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

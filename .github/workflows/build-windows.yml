@@ -25,9 +25,9 @@ jobs:
 
       - name: Install Python dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install pyinstaller pyinstaller-hooks-contrib
-          cd backend
-          pip install -r requirements.txt
+          pip install -r backend/requirements.txt
 
       - name: Build frontend
         run: |
@@ -35,13 +35,19 @@ jobs:
           npm install
           npm run build
           cd ..
-          Remove-Item -Recurse -Force backend/static -ErrorAction SilentlyContinue
+          if (Test-Path backend/static) { Remove-Item -Recurse -Force backend/static }
           Copy-Item -Recurse frontend/dist backend/static
+          Test-Path backend/static/index.html
 
       - name: Build EXE with PyInstaller
         run: |
           cd build-scripts/windows
-          pyinstaller --clean KnowledgeWorkstation.spec
+          python -m PyInstaller --clean --noconfirm KnowledgeWorkstation.spec
+
+      - name: Verify build output
+        run: |
+          Test-Path build-scripts/windows/dist/KnowledgeWorkstation.exe
+          Get-ChildItem build-scripts/windows/dist/
 
       - name: Copy templates to dist
         run: |
@@ -49,22 +55,21 @@ jobs:
             Copy-Item -Recurse templates build-scripts/windows/dist/
           }
 
+      - name: Create ZIP artifact
+        run: |
+          cd build-scripts/windows/dist
+          Compress-Archive -Path * -DestinationPath "$env:GITHUB_WORKSPACE/KnowledgeWorkstation-Windows.zip"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: KnowledgeWorkstation-Windows
           path: build-scripts/windows/dist/
 
-      - name: Create ZIP for release
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          cd build-scripts/windows/dist
-          Compress-Archive -Path * -DestinationPath ../../KnowledgeWorkstation-Windows.zip
-
       - name: Upload Release Asset
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
         with:
-          files: build-scripts/KnowledgeWorkstation-Windows.zip
+          files: KnowledgeWorkstation-Windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

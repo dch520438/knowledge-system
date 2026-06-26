@@ -29,9 +29,9 @@ jobs:
 
       - name: Install Python dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install pyinstaller pyinstaller-hooks-contrib
-          cd backend
-          pip install -r requirements.txt
+          pip install -r backend/requirements.txt
 
       - name: Build frontend
         run: |
@@ -39,13 +39,19 @@ jobs:
           npm install
           npm run build
           cd ..
-          Remove-Item -Recurse -Force backend/static -ErrorAction SilentlyContinue
+          if (Test-Path backend/static) { Remove-Item -Recurse -Force backend/static }
           Copy-Item -Recurse frontend/dist backend/static
+          Test-Path backend/static/index.html
 
       - name: Build EXE with PyInstaller
         run: |
           cd build-scripts/windows
-          pyinstaller --clean KnowledgeWorkstation.spec
+          python -m PyInstaller --clean --noconfirm KnowledgeWorkstation.spec
+
+      - name: Verify build output
+        run: |
+          Test-Path build-scripts/windows/dist/KnowledgeWorkstation.exe
+          Get-ChildItem build-scripts/windows/dist/
 
       - name: Copy templates to dist
         run: |
@@ -53,16 +59,16 @@ jobs:
             Copy-Item -Recurse templates build-scripts/windows/dist/
           }
 
-      - name: Create ZIP
+      - name: Create ZIP artifact
         run: |
           cd build-scripts/windows/dist
-          Compress-Archive -Path * -DestinationPath ../../KnowledgeWorkstation-Windows.zip
+          Compress-Archive -Path * -DestinationPath "$env:GITHUB_WORKSPACE/KnowledgeWorkstation-Windows.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: KnowledgeWorkstation-Windows
-          path: build-scripts/KnowledgeWorkstation-Windows.zip
+          path: build-scripts/windows/dist/
 
   build-linux:
     runs-on: ubuntu-22.04
@@ -82,21 +88,24 @@ jobs:
 
       - name: Install dependencies
         run: |
+          set -e
           sudo apt-get update
           sudo apt-get install -y dpkg-dev
+          pip install --upgrade pip
           pip install pyinstaller
-          cd backend
-          pip install -r requirements.txt
-          cd ..
+          pip install -r backend/requirements.txt
           cd frontend
           npm install
           npm run build
           cd ..
           rm -rf backend/static
           cp -r frontend/dist backend/static
+          ls -la backend/static/
+          test -f backend/static/index.html
 
       - name: Build deb package
         run: |
+          set -e
           VERSION="1.0.0"
           ARCH="amd64"
           BUILD_DIR="build-scripts/kylin/build"
@@ -120,7 +129,7 @@ jobs:
           EOF
           chmod +x "$DEB_DIR/usr/bin/knowledge-workstation"
 
-          cat > "$DEB_DIR/usr/share/applications/knowledge-workstation.desktop" << EOF
+          cat > "$DEB_DIR/usr/share/applications/knowledge-workstation.desktop" << 'EOF'
           [Desktop Entry]
           Name=智能知识工作台
           Name[zh_CN]=智能知识工作台
@@ -139,7 +148,7 @@ jobs:
           Section: office
           Priority: optional
           Architecture: $ARCH
-          Depends: python3 (>= 3.8), python3-pip, nodejs (>= 16) | node (>= 16)
+          Depends: python3 (>= 3.8), python3-pip
           Maintainer: Knowledge Workstation Team
           Description: 智能知识工作台
            集成知识库管理、智能写作、核稿检查、
@@ -164,6 +173,8 @@ jobs:
           chmod +x "$DEB_DIR/DEBIAN/prerm"
 
           dpkg-deb --build "$DEB_DIR"
+          echo "deb package built:"
+          ls -la "$BUILD_DIR/"*.deb
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -186,18 +197,24 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install Android SDK components
+        run: |
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.2
+
       - name: Create Android project
         run: |
+          set -e
           SCRIPT_DIR="$PWD/build-scripts/android"
-          PROJECT_DIR="$SCRIPT_DIR/project"
+          PROJECT_DIR="$PWD/android-project"
           mkdir -p "$PROJECT_DIR/app/src/main/java/com/knowledgeworkstation/app"
           mkdir -p "$PROJECT_DIR/app/src/main/res/layout"
           mkdir -p "$PROJECT_DIR/app/src/main/res/values"
           mkdir -p "$PROJECT_DIR/app/src/main/res/mipmap-hdpi"
-          mkdir -p "$PROJECT_DIR/app/src/main/res/mipmap-mdpi"
-          mkdir -p "$PROJECT_DIR/app/src/main/res/mipmap-xhdpi"
-          mkdir -p "$PROJECT_DIR/app/src/main/res/mipmap-xxhdpi"
-          mkdir -p "$PROJECT_DIR/app/src/main/res/mipmap-xxxhdpi"
 
           cp "$SCRIPT_DIR/build.gradle.kts" "$PROJECT_DIR/app/build.gradle.kts"
           cp "$SCRIPT_DIR/AndroidManifest.xml" "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
@@ -205,7 +222,6 @@ jobs:
           cp "$SCRIPT_DIR/activity_main.xml" "$PROJECT_DIR/app/src/main/res/layout/activity_main.xml"
           cp "$SCRIPT_DIR/strings.xml" "$PROJECT_DIR/app/src/main/res/values/strings.xml"
 
-          mkdir -p "$PROJECT_DIR/app/src/main/res/values"
           cat > "$PROJECT_DIR/app/src/main/res/values/themes.xml" << 'XMLEOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -241,42 +257,23 @@ jobs:
           include(":app")
           EOF
 
-      - name: Generate Gradle Wrapper
-        run: |
-          cd build-scripts/android/project
-          mkdir -p gradle/wrapper
-          curl -sL -o gradle/wrapper/gradle-wrapper.jar \
-            "https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradle/wrapper/gradle-wrapper.jar" || \
-            curl -sL -o gradle/wrapper/gradle-wrapper.jar \
-            "https://services.gradle.org/distributions/gradle-8.2-bin.zip"
-          
-          cat > gradlew << 'GRADLEOF'
-          #!/bin/bash
-          DIR="$(cd "$(dirname "$0")" && pwd)"
-          exec java -cp "$DIR/gradle/wrapper/gradle-wrapper.jar" org.gradle.wrapper.GradleWrapperMain "$@"
-          GRADLEOF
-          chmod +x gradlew
-
-          cat > gradle/wrapper/gradle-wrapper.properties << 'PROPEOF'
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-bin.zip
-          networkTimeout=10000
-          validateDistributionUrl=true
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          PROPEOF
+          cd "$PROJECT_DIR"
+          gradle wrapper --gradle-version 8.2
 
       - name: Build APK
         run: |
-          cd build-scripts/android/project
-          ./gradlew assembleRelease
+          cd android-project
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Verify APK
+        run: |
+          ls -la android-project/app/build/outputs/apk/release/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: KnowledgeWorkstation-Android
-          path: build-scripts/android/project/app/build/outputs/apk/release/*.apk
+          path: android-project/app/build/outputs/apk/release/*.apk
 
   release:
     needs: [build-windows, build-linux, build-android]
@@ -287,6 +284,10 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+
+      - name: List artifacts
+        run: |
+          find artifacts -type f
 
       - name: Create Release
         uses: softprops/action-gh-release@v1

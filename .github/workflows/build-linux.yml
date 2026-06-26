@@ -25,21 +25,24 @@ jobs:
 
       - name: Install dependencies
         run: |
+          set -e
           sudo apt-get update
           sudo apt-get install -y dpkg-dev
+          pip install --upgrade pip
           pip install pyinstaller
-          cd backend
-          pip install -r requirements.txt
-          cd ..
+          pip install -r backend/requirements.txt
           cd frontend
           npm install
           npm run build
           cd ..
           rm -rf backend/static
           cp -r frontend/dist backend/static
+          ls -la backend/static/
+          test -f backend/static/index.html
 
       - name: Build deb package
         run: |
+          set -e
           VERSION="1.0.0"
           ARCH="amd64"
           BUILD_DIR="build-scripts/kylin/build"
@@ -63,7 +66,7 @@ jobs:
           EOF
           chmod +x "$DEB_DIR/usr/bin/knowledge-workstation"
 
-          cat > "$DEB_DIR/usr/share/applications/knowledge-workstation.desktop" << EOF
+          cat > "$DEB_DIR/usr/share/applications/knowledge-workstation.desktop" << 'EOF'
           [Desktop Entry]
           Name=智能知识工作台
           Name[zh_CN]=智能知识工作台
@@ -82,7 +85,7 @@ jobs:
           Section: office
           Priority: optional
           Architecture: $ARCH
-          Depends: python3 (>= 3.8), python3-pip, nodejs (>= 16) | node (>= 16)
+          Depends: python3 (>= 3.8), python3-pip
           Maintainer: Knowledge Workstation Team
           Description: 智能知识工作台
            集成知识库管理、智能写作、核稿检查、
@@ -107,6 +110,8 @@ jobs:
           chmod +x "$DEB_DIR/DEBIAN/prerm"
 
           dpkg-deb --build "$DEB_DIR"
+          echo "deb package built:"
+          ls -la "$BUILD_DIR/"*.deb
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
